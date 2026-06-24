@@ -1,0 +1,2 @@
+# SPA fallback so client-side routes resolve on Cloudflare Pages
+/*    /index.html   200

@@ -1,0 +1,4 @@
+# Cloudflare Pages configuration for FreightDesk (static SPA build output)
+name = "freightdesk"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "dist"
