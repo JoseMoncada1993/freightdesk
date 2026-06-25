@@ -1,20 +1,25 @@
 import PageHeader from "@/components/PageHeader";
+import DataTable from "@/components/DataTable";
+import { useTasks } from "@/hooks/useTables";
+import type { TaskRecord } from "@/lib/types";
 
 export default function Tasks() {
+  const { data, isLoading, error } = useTasks();
   return (
     <div>
-      <PageHeader
-        title="Tasks"
-        subtitle="Workflow tasks and assignments"
-        action={
-          <button className="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2 rounded-md">
-            New
-          </button>
-        }
+      <PageHeader title="Tasks" subtitle="Workflow tasks and assignments" />
+      <DataTable<TaskRecord>
+        rows={data}
+        isLoading={isLoading}
+        error={error}
+        rowKey={(r) => r.id}
+        columns={[
+          { header: "Title", cell: (r) => r.title },
+          { header: "Assignee", cell: (r) => r.assignee ?? "—" },
+          { header: "Status", cell: (r) => r.status },
+          { header: "Due", cell: (r) => r.due_date ?? "—" },
+        ]}
       />
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 shadow-sm">
-        Tasks list — connect to Supabase `tasks` table to populate.
-      </div>
     </div>
   );
 }

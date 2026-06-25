@@ -1,20 +1,25 @@
 import PageHeader from "@/components/PageHeader";
+import DataTable from "@/components/DataTable";
+import { useCustomers } from "@/hooks/useTables";
+import type { Customer } from "@/lib/types";
 
 export default function Customers() {
+  const { data, isLoading, error } = useCustomers();
   return (
     <div>
-      <PageHeader
-        title="Customers"
-        subtitle="Manage customer records, contacts and rates"
-        action={
-          <button className="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2 rounded-md">
-            New
-          </button>
-        }
+      <PageHeader title="Customers" subtitle="Customer records and contacts" />
+      <DataTable<Customer>
+        rows={data}
+        isLoading={isLoading}
+        error={error}
+        rowKey={(r) => r.id}
+        columns={[
+          { header: "Name", cell: (r) => r.name },
+          { header: "Email", cell: (r) => r.contact_email ?? "—" },
+          { header: "Phone", cell: (r) => r.contact_phone ?? "—" },
+          { header: "Active", cell: (r) => (r.active ? "Yes" : "No") },
+        ]}
       />
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 shadow-sm">
-        Customers list — connect to Supabase `customers` table to populate.
-      </div>
     </div>
   );
 }

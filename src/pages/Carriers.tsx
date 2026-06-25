@@ -1,20 +1,25 @@
 import PageHeader from "@/components/PageHeader";
+import DataTable from "@/components/DataTable";
+import { useCarriers } from "@/hooks/useTables";
+import type { Carrier } from "@/lib/types";
 
 export default function Carriers() {
+  const { data, isLoading, error } = useCarriers();
   return (
     <div>
-      <PageHeader
-        title="Carriers"
-        subtitle="Manage carrier records, SCAC/MC numbers and contacts"
-        action={
-          <button className="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2 rounded-md">
-            New
-          </button>
-        }
+      <PageHeader title="Carriers" subtitle="Carrier records, SCAC and mode" />
+      <DataTable<Carrier>
+        rows={data}
+        isLoading={isLoading}
+        error={error}
+        rowKey={(r) => r.id}
+        columns={[
+          { header: "Name", cell: (r) => r.name },
+          { header: "SCAC", cell: (r) => r.scac ?? "—" },
+          { header: "Mode", cell: (r) => r.mode },
+          { header: "Active", cell: (r) => (r.active ? "Yes" : "No") },
+        ]}
       />
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 shadow-sm">
-        Carriers list — connect to Supabase `carriers` table to populate.
-      </div>
     </div>
   );
 }

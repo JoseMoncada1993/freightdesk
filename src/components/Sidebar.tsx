@@ -11,7 +11,7 @@ const links = [
 
 export default function Sidebar() {
   return (
-    <aside className="w-56 shrink-0 bg-slate-900 text-slate-100 p-4 flex flex-col gap-1">
+    <aside className="w-56 shrink-0 bg-slate-900 text-slate-100 p-4 flex flex-col gap-1 min-h-screen">
       <div className="text-xl font-bold px-2 py-3 text-brand-light">FreightDesk</div>
       {links.map((l) => (
         <NavLink

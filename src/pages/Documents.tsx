@@ -1,20 +1,25 @@
 import PageHeader from "@/components/PageHeader";
+import DataTable from "@/components/DataTable";
+import { useDocuments } from "@/hooks/useTables";
+import type { DocumentRecord } from "@/lib/types";
 
 export default function Documents() {
+  const { data, isLoading, error } = useDocuments();
   return (
     <div>
-      <PageHeader
-        title="Documents"
-        subtitle="BOLs, invoices and proof-of-delivery uploads"
-        action={
-          <button className="bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2 rounded-md">
-            New
-          </button>
-        }
+      <PageHeader title="Documents" subtitle="BOLs, invoices and proof-of-delivery" />
+      <DataTable<DocumentRecord>
+        rows={data}
+        isLoading={isLoading}
+        error={error}
+        rowKey={(r) => r.id}
+        columns={[
+          { header: "Type", cell: (r) => r.doc_type },
+          { header: "File", cell: (r) => r.file_path },
+          { header: "Load", cell: (r) => (r.load_id == null ? "—" : `#${r.load_id}`) },
+          { header: "Uploaded", cell: (r) => new Date(r.uploaded_at).toLocaleDateString() },
+        ]}
       />
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 shadow-sm">
-        Documents list — connect to Supabase `documents` table to populate.
-      </div>
     </div>
   );
 }

@@ -1,45 +1,30 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import type { ReactNode } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 import Layout from "./components/Layout";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Shipments from "./pages/Shipments";
 import Customers from "./pages/Customers";
 import Carriers from "./pages/Carriers";
 import Documents from "./pages/Documents";
 import Tasks from "./pages/Tasks";
-import Login from "./pages/Login";
-import { useAuth } from "@/lib/AuthContext";
 
-function RequireAuth({ children }: { children: ReactNode }) {
+export default function App() {
   const { session, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-400">
-        Loading…
+        Loading...
       </div>
     );
   }
 
-  if (!session) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  }
+  if (!session) return <Login />;
 
-  return <>{children}</>;
-}
-
-export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        element={
-          <RequireAuth>
-            <Layout />
-          </RequireAuth>
-        }
-      >
+      <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="shipments" element={<Shipments />} />
         <Route path="customers" element={<Customers />} />
