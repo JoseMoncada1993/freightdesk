@@ -1,4 +1,5 @@
 import PageHeader from "@/components/PageHeader";
+import DieselWidget from "@/components/DieselWidget";
 import StatCard from "@/components/ui/StatCard";
 import { useLoads } from "@/hooks/useLoads";
 import { useCustomers, useTasks } from "@/hooks/useTables";
@@ -56,6 +57,10 @@ export default function Dashboard() {
             </ResponsiveContainer>
           )}
         </div>
+      </div>
+
+      <div className="mt-8">
+        <DieselWidget />
       </div>
     </div>
   );
