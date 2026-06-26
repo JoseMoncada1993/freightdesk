@@ -1,0 +1,33 @@
+name: Type Check
+
+# Runs the same TypeScript compile that the Cloudflare Pages build runs,
+# so a type error fails here (in the PR / commit) instead of silently
+# failing the production deploy.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npx tsc -b --pretty
+
+      - name: Production build
+        run: npm run build
