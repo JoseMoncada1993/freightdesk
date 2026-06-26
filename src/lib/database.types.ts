@@ -47,6 +47,17 @@ export type Database = {
           created_at: string
           id: number
           name: string
+          address1: string | null
+          address2: string | null
+          business_hours: string | null
+          city: string | null
+          company_name: string | null
+          facility_type: string | null
+          first_name: string | null
+          last_name: string | null
+          special_instructions: string | null
+          state: string | null
+          zip_code: string | null
         }
         Insert: {
           active?: boolean
@@ -54,7 +65,18 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: never
-          name: string
+          name?: string
+          address1?: string | null
+          address2?: string | null
+          business_hours?: string | null
+          city?: string | null
+          company_name?: string | null
+          facility_type?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          special_instructions?: string | null
+          state?: string | null
+          zip_code?: string | null
         }
         Update: {
           active?: boolean
@@ -63,6 +85,17 @@ export type Database = {
           created_at?: string
           id?: never
           name?: string
+          address1?: string | null
+          address2?: string | null
+          business_hours?: string | null
+          city?: string | null
+          company_name?: string | null
+          facility_type?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          special_instructions?: string | null
+          state?: string | null
+          zip_code?: string | null
         }
         Relationships: []
       }
