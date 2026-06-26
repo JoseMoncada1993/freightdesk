@@ -237,6 +237,8 @@ export type Database = {
           load_id: number | null
           status: string
           title: string
+          notes: string | null
+          archived: boolean
         }
         Insert: {
           assignee?: string | null
@@ -246,6 +248,8 @@ export type Database = {
           load_id?: number | null
           status?: string
           title: string
+          notes?: string | null
+          archived?: boolean
         }
         Update: {
           assignee?: string | null
@@ -255,6 +259,8 @@ export type Database = {
           load_id?: number | null
           status?: string
           title?: string
+          notes?: string | null
+          archived?: boolean
         }
         Relationships: [
           {
