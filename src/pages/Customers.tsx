@@ -5,7 +5,7 @@ import DataTable from "@/components/DataTable";
 import { supabase } from "@/lib/supabase";
 
 type CustomerRow = {
-  id: string;
+  id: number;
   first_name: string | null;
   last_name: string | null;
   company_name: string | null;
@@ -90,7 +90,7 @@ function rowToForm(row: CustomerRow): FormState {
 export default function Customers() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const { data, isLoading, error } = useQuery({
