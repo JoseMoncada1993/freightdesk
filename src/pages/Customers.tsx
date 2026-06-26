@@ -112,7 +112,7 @@ export default function Customers() {
         name:
           [payload.first_name, payload.last_name].filter(Boolean).join(" ") ||
           payload.company_name ||
-          null,
+          "",
       };
       if (editingId) {
         const { error } = await supabase
