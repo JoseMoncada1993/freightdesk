@@ -172,7 +172,7 @@ export default function Customers() {
         isLoading={isLoading}
         error={error as Error | null}
         rowKey={(r) => r.id}
-        empty="No customers yet. Click \"New Customer\" to add one."
+        empty={"No customers yet. Use the New Customer button to add one."}
         columns={[
           {
             header: "Name",
