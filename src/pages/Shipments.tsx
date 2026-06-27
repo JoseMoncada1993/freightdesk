@@ -92,7 +92,7 @@ function daysSince(iso: string | null): number | null {
 }
 
 function money(n: number | null | undefined): string {
-  if (n == null) return "â";
+  if (n == null) return "-";
   return "$" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -319,7 +319,7 @@ export default function Shipments() {
     <div>
       <PageHeader
         title="Shipments"
-        subtitle="TMS shipment board â quote, book, and generate BOLs"
+        subtitle="TMS shipment board - quote, book, and generate BOLs"
         action={
           <div className="flex items-center gap-2">
             <button
@@ -343,7 +343,7 @@ export default function Shipments() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search ref, BOL, carrier, city, zipâ¦"
+          placeholder="Search ref, BOL, carrier, city, zip..."
           className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <select
@@ -390,7 +390,7 @@ export default function Shipments() {
           </thead>
           <tbody>
             {shipmentsQ.isLoading && (
-              <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-400">Loadingâ¦</td></tr>
+              <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
             )}
             {shipmentsQ.error && (
               <tr><td colSpan={13} className="px-4 py-8 text-center text-red-600">Failed to load shipments.</td></tr>
@@ -413,15 +413,15 @@ export default function Shipments() {
                       onChange={() => toggleSel(r.id)}
                     />
                   </td>
-                  <td className="px-3 py-3 font-medium text-slate-900">{r.ref || "â"}</td>
-                  <td className="px-3 py-3 text-slate-500">{age == null ? "â" : age + "d"}</td>
-                  <td className="px-3 py-3">{r.entity || "â"}</td>
-                  <td className="px-3 py-3">{r.carrier_name || "â"}</td>
-                  <td className="px-3 py-3">{r.equipment_type || "â"}</td>
-                  <td className="px-3 py-3">{r.bol_number || "â"}</td>
-                  <td className="px-3 py-3 text-slate-600">{cityLine(r.origin_city, r.origin_state, r.origin_zip) || r.origin || "â"}</td>
-                  <td className="px-3 py-3 text-slate-600">{cityLine(r.dest_city, r.dest_state, r.dest_zip) || r.destination || "â"}</td>
-                  <td className="px-3 py-3">{r._miles == null ? "â" : r._miles + " mi"}</td>
+                  <td className="px-3 py-3 font-medium text-slate-900">{r.ref || "-"}</td>
+                  <td className="px-3 py-3 text-slate-500">{age == null ? "-" : age + "d"}</td>
+                  <td className="px-3 py-3">{r.entity || "-"}</td>
+                  <td className="px-3 py-3">{r.carrier_name || "-"}</td>
+                  <td className="px-3 py-3">{r.equipment_type || "-"}</td>
+                  <td className="px-3 py-3">{r.bol_number || "-"}</td>
+                  <td className="px-3 py-3 text-slate-600">{cityLine(r.origin_city, r.origin_state, r.origin_zip) || r.origin || "-"}</td>
+                  <td className="px-3 py-3 text-slate-600">{cityLine(r.dest_city, r.dest_state, r.dest_zip) || r.destination || "-"}</td>
+                  <td className="px-3 py-3">{r._miles == null ? "-" : r._miles + " mi"}</td>
                   <td className="px-3 py-3 text-slate-600">{money(r._suggested)}</td>
                   <td className="px-3 py-3">{money(r.rate_usd)}</td>
                   <td className="px-3 py-3">
@@ -443,7 +443,7 @@ export default function Shipments() {
             <div className="mb-4 flex items-start justify-between">
               <div>
                 <div className="text-xs uppercase tracking-wide text-slate-400">Shipment</div>
-                <h2 className="text-xl font-semibold text-slate-900">{detail.ref || "â"}</h2>
+                <h2 className="text-xl font-semibold text-slate-900">{detail.ref || "-"}</h2>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -452,7 +452,7 @@ export default function Shipments() {
                 >
                   Edit
                 </button>
-                <button onClick={() => setDetailId(null)} className="text-slate-400 hover:text-slate-700">â</button>
+                <button onClick={() => setDetailId(null)} className="text-slate-400 hover:text-slate-700">\u2715</button>
               </div>
             </div>
 
@@ -461,23 +461,23 @@ export default function Shipments() {
             <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
               <div>
                 <div className="text-xs uppercase text-slate-400">Entity</div>
-                <div>{detail.entity || "â"}</div>
+                <div>{detail.entity || "-"}</div>
               </div>
               <div>
                 <div className="text-xs uppercase text-slate-400">Type</div>
-                <div>{detail.equipment_type || "â"}</div>
+                <div>{detail.equipment_type || "-"}</div>
               </div>
               <div>
                 <div className="text-xs uppercase text-slate-400">Carrier</div>
-                <div>{detail.carrier_name || "â"}</div>
+                <div>{detail.carrier_name || "-"}</div>
               </div>
               <div>
                 <div className="text-xs uppercase text-slate-400">BOL #</div>
-                <div>{detail.bol_number || "â"}</div>
+                <div>{detail.bol_number || "-"}</div>
               </div>
               <div>
                 <div className="text-xs uppercase text-slate-400">Miles</div>
-                <div>{detail._miles == null ? "â" : detail._miles + " mi"}</div>
+                <div>{detail._miles == null ? "-" : detail._miles + " mi"}</div>
               </div>
               <div>
                 <div className="text-xs uppercase text-slate-400">Suggested / Actual</div>
@@ -488,14 +488,14 @@ export default function Shipments() {
             <div className="mt-6 grid grid-cols-2 gap-6">
               <div className="rounded-lg border border-slate-200 p-4">
                 <div className="mb-2 text-xs font-semibold uppercase text-slate-500">Shipper</div>
-                <div className="font-medium">{detail.shipper_name || "â"}</div>
+                <div className="font-medium">{detail.shipper_name || "-"}</div>
                 <div className="text-slate-600">{detail.shipper_address1}</div>
                 <div className="text-slate-600">{cityLine(detail.shipper_city, detail.shipper_state, detail.shipper_zip)}</div>
                 <div className="mt-1 text-slate-500">{detail.shipper_phone}</div>
               </div>
               <div className="rounded-lg border border-slate-200 p-4">
                 <div className="mb-2 text-xs font-semibold uppercase text-slate-500">Consignee</div>
-                <div className="font-medium">{detail.consignee_name || "â"}</div>
+                <div className="font-medium">{detail.consignee_name || "-"}</div>
                 <div className="text-slate-600">{detail.consignee_address1}</div>
                 <div className="text-slate-600">{cityLine(detail.consignee_city, detail.consignee_state, detail.consignee_zip)}</div>
                 <div className="mt-1 text-slate-500">{detail.consignee_phone}</div>
@@ -504,7 +504,7 @@ export default function Shipments() {
 
             <div className="mt-6">
               <div className="text-xs uppercase text-slate-400">Commodity</div>
-              <div className="text-sm">{detail.commodity || "â"}</div>
+              <div className="text-sm">{detail.commodity || "-"}</div>
             </div>
             {detail.notes && (
               <div className="mt-4">
@@ -541,17 +541,17 @@ export default function Shipments() {
               </Field>
               <Field label="Entity">
                 <select className={inp} value={editing.entity || ""} onChange={(e) => set("entity", e.target.value)}>
-                  {ENTITY_OPTIONS.map((s) => <option key={s} value={s}>{s || "â"}</option>)}
+                  {ENTITY_OPTIONS.map((s) => <option key={s} value={s}>{s || "-"}</option>)}
                 </select>
               </Field>
               <Field label="Equipment Type">
                 <select className={inp} value={editing.equipment_type || ""} onChange={(e) => set("equipment_type", e.target.value)}>
-                  {EQUIP_OPTIONS.map((s) => <option key={s} value={s}>{s || "â"}</option>)}
+                  {EQUIP_OPTIONS.map((s) => <option key={s} value={s}>{s || "-"}</option>)}
                 </select>
               </Field>
               <Field label="Carrier">
                 <select className={inp} value={editing.carrier_id ?? ""} onChange={(e) => set("carrier_id", e.target.value ? Number(e.target.value) : null)}>
-                  <option value="">â</option>
+                  <option value="">-</option>
                   {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </Field>
@@ -578,7 +578,7 @@ export default function Shipments() {
                     value=""
                     onChange={(e) => e.target.value && applyCustomerToShipper(Number(e.target.value))}
                   >
-                    <option value="">Auto-fill from customerâ¦</option>
+                    <option value="">Auto-fill from customer...</option>
                     {customers.map((c) => <option key={c.id} value={c.id}>{c.company_name || c.name}</option>)}
                   </select>
                 </div>
@@ -600,7 +600,7 @@ export default function Shipments() {
                     value=""
                     onChange={(e) => e.target.value && applyCustomerToConsignee(Number(e.target.value))}
                   >
-                    <option value="">Auto-fill from customerâ¦</option>
+                    <option value="">Auto-fill from customer...</option>
                     {customers.map((c) => <option key={c.id} value={c.id}>{c.company_name || c.name}</option>)}
                   </select>
                 </div>
@@ -628,7 +628,7 @@ export default function Shipments() {
             <div className="mt-6 flex justify-end gap-2">
               <button onClick={() => { setShowForm(false); setEditing(null); }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm">Cancel</button>
               <button onClick={submitForm} disabled={saveMut.isPending} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                {saveMut.isPending ? "Savingâ¦" : "Save"}
+                {saveMut.isPending ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
@@ -658,7 +658,7 @@ function StatusBadge({ status }: { status: string | null }) {
   else if (s.includes("book")) cls = "bg-indigo-100 text-indigo-700";
   return (
     <span className={"inline-block rounded-full px-2.5 py-1 text-xs font-medium " + cls}>
-      {status || "â"}
+      {status || "-"}
     </span>
   );
 }
@@ -674,7 +674,7 @@ function StatusTracker({ status }: { status: string | null }) {
             <div className="flex w-full items-center">
               <div className={"h-0.5 flex-1 " + (i === 0 ? "bg-transparent" : done ? "bg-blue-500" : "bg-slate-200")} />
               <div className={"flex h-6 w-6 items-center justify-center rounded-full text-xs " + (done ? "bg-blue-500 text-white" : "border border-slate-300 bg-white text-slate-300")}>
-                {done ? "â" : ""}
+                {done ? "\u2713" : ""}
               </div>
               <div className={"h-0.5 flex-1 " + (i === STATUS_STEPS.length - 1 ? "bg-transparent" : i < active ? "bg-blue-500" : "bg-slate-200")} />
             </div>
