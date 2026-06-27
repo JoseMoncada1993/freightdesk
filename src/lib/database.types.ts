@@ -20,6 +20,43 @@ export type Database = {
           mode: string
           name: string
           scac: string | null
+          entity_type: string | null
+          legal_name: string | null
+          dba: string | null
+          mc_number: string | null
+          usdot_number: string | null
+          ff_docket: string | null
+          ein: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          contact_email: string | null
+          address1: string | null
+          address2: string | null
+          city: string | null
+          state: string | null
+          zip_code: string | null
+          country: string | null
+          insurance_company: string | null
+          policy_number: string | null
+          cargo_coverage: string | null
+          liability_coverage: string | null
+          coi_expiration: string | null
+          authority_status: string | null
+          operating_status: string | null
+          safety_rating: string | null
+          onboarding_status: string | null
+          onboarding_date: string | null
+          factoring_company: string | null
+          remittance_name: string | null
+          document_url: string | null
+          notes: string | null
+          w9_file_path: string | null
+          coi_file_path: string | null
+          w9_received: boolean
+          coi_received: boolean
+          carrier_packet_received: boolean
+          identity_verified: boolean
+          phone_verified: boolean
         }
         Insert: {
           active?: boolean
@@ -28,6 +65,43 @@ export type Database = {
           mode?: string
           name: string
           scac?: string | null
+          entity_type?: string | null
+          legal_name?: string | null
+          dba?: string | null
+          mc_number?: string | null
+          usdot_number?: string | null
+          ff_docket?: string | null
+          ein?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
+          address1?: string | null
+          address2?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          country?: string | null
+          insurance_company?: string | null
+          policy_number?: string | null
+          cargo_coverage?: string | null
+          liability_coverage?: string | null
+          coi_expiration?: string | null
+          authority_status?: string | null
+          operating_status?: string | null
+          safety_rating?: string | null
+          onboarding_status?: string | null
+          onboarding_date?: string | null
+          factoring_company?: string | null
+          remittance_name?: string | null
+          document_url?: string | null
+          notes?: string | null
+          w9_file_path?: string | null
+          coi_file_path?: string | null
+          w9_received?: boolean
+          coi_received?: boolean
+          carrier_packet_received?: boolean
+          identity_verified?: boolean
+          phone_verified?: boolean
         }
         Update: {
           active?: boolean
@@ -36,6 +110,43 @@ export type Database = {
           mode?: string
           name?: string
           scac?: string | null
+          entity_type?: string | null
+          legal_name?: string | null
+          dba?: string | null
+          mc_number?: string | null
+          usdot_number?: string | null
+          ff_docket?: string | null
+          ein?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
+          address1?: string | null
+          address2?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          country?: string | null
+          insurance_company?: string | null
+          policy_number?: string | null
+          cargo_coverage?: string | null
+          liability_coverage?: string | null
+          coi_expiration?: string | null
+          authority_status?: string | null
+          operating_status?: string | null
+          safety_rating?: string | null
+          onboarding_status?: string | null
+          onboarding_date?: string | null
+          factoring_company?: string | null
+          remittance_name?: string | null
+          document_url?: string | null
+          notes?: string | null
+          w9_file_path?: string | null
+          coi_file_path?: string | null
+          w9_received?: boolean
+          coi_received?: boolean
+          carrier_packet_received?: boolean
+          identity_verified?: boolean
+          phone_verified?: boolean
         }
         Relationships: []
       }
