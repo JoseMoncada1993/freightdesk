@@ -196,8 +196,8 @@ export default function Shipments() {
 
   const enriched = useMemo(() => {
     return rows.map((r) => {
-      const oZip = r.origin_zip;
-      const dZip = r.dest_zip;
+      const oZip = r.origin_zip || r.shipper_zip;
+      const dZip = r.dest_zip || r.consignee_zip;
       const calcMiles = r.miles_calc ?? estimateMiles(oZip, dZip);
       const suggested = suggestedTotal(calcMiles, r.rate_per_mile);
       return { ...r, _miles: calcMiles, _suggested: suggested };
@@ -419,8 +419,8 @@ export default function Shipments() {
                   <td className="px-3 py-3">{r.carrier_name || "-"}</td>
                   <td className="px-3 py-3">{r.equipment_type || "-"}</td>
                   <td className="px-3 py-3">{r.bol_number || "-"}</td>
-                  <td className="px-3 py-3 text-slate-600">{cityLine(r.origin_city, r.origin_state, r.origin_zip) || r.origin || "-"}</td>
-                  <td className="px-3 py-3 text-slate-600">{cityLine(r.dest_city, r.dest_state, r.dest_zip) || r.destination || "-"}</td>
+                  <td className="px-3 py-3 text-slate-600">{cityLine(r.origin_city, r.origin_state, r.origin_zip) || cityLine(r.shipper_city, r.shipper_state, r.shipper_zip) || r.origin || "-"}</td>
+                  <td className="px-3 py-3 text-slate-600">{cityLine(r.dest_city, r.dest_state, r.dest_zip) || cityLine(r.consignee_city, r.consignee_state, r.consignee_zip) || r.destination || "-"}</td>
                   <td className="px-3 py-3">{r._miles == null ? "-" : r._miles + " mi"}</td>
                   <td className="px-3 py-3 text-slate-600">{money(r._suggested)}</td>
                   <td className="px-3 py-3">{money(r.rate_usd)}</td>
@@ -452,7 +452,7 @@ export default function Shipments() {
                 >
                   Edit
                 </button>
-                <button onClick={() => setDetailId(null)} className="text-slate-400 hover:text-slate-700">\u2715</button>
+                <button onClick={() => setDetailId(null)} className="text-slate-400 hover:text-slate-700">{"\u2715"}</button>
               </div>
             </div>
 
