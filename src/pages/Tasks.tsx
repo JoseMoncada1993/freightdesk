@@ -40,6 +40,10 @@ function ageInDays(createdAt: string): number {
   return Math.max(0, Math.floor(diff / 86400000));
 }
 
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+}
+
 export default function Tasks() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
@@ -48,6 +52,7 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("age");
   const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["tasks"],
@@ -133,7 +138,15 @@ export default function Tasks() {
   const rows = useMemo(() => {
     let list = (data ?? []).filter((t) => t.archived === showArchived);
     if (statusFilter !== "all") {
-      list = list.filter((t) => (t.status ?? "") === statusFilter);
+      list = list.filter((t) => norm(t.status ?? "") === norm(statusFilter));
+    }
+    if (search.trim() !== "") {
+      const q = search.toLowerCase();
+      list = list.filter((t) =>
+        (t.title ?? "").toLowerCase().includes(q) ||
+        (t.assignee ?? "").toLowerCase().includes(q) ||
+        (t.notes ?? "").toLowerCase().includes(q)
+      );
     }
     const sorted = [...list];
     if (sortBy === "age") {
@@ -144,7 +157,7 @@ export default function Tasks() {
       sorted.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? ""));
     }
     return sorted;
-  }, [data, statusFilter, sortBy, showArchived]);
+  }, [data, statusFilter, sortBy, showArchived, search]);
 
   const controlClass =
     "rounded border border-slate-300 px-2 py-1 text-sm focus:border-slate-500 focus:outline-none";
@@ -195,6 +208,13 @@ export default function Tasks() {
             <option value="title">Title</option>
           </select>
         </label>
+        <input
+          type="text"
+          placeholder="Search tasks…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded border border-slate-300 px-2 py-1 text-sm focus:border-slate-500 focus:outline-none"
+        />
         <label className="flex items-center gap-2 text-sm text-slate-600">
           <input
             type="checkbox"
@@ -214,10 +234,10 @@ export default function Tasks() {
         columns={[
           { header: "Age", cell: (r) => ageInDays(r.created_at) + "d" },
           { header: "Title", cell: (r) => r.title },
-          { header: "Assignee", cell: (r) => r.assignee ?? "—" },
-          { header: "Status", cell: (r) => r.status ?? "—" },
-          { header: "Due Date", cell: (r) => r.due_date ?? "—" },
-          { header: "Notes", cell: (r) => r.notes ?? "—" },
+          { header: "Assignee", cell: (r) => r.assignee ?? "â" },
+          { header: "Status", cell: (r) => r.status ?? "â" },
+          { header: "Due Date", cell: (r) => r.due_date ?? "â" },
+          { header: "Notes", cell: (r) => r.notes ?? "â" },
           {
             header: "",
             cell: (r) => (
@@ -314,7 +334,7 @@ export default function Tasks() {
                   disabled={saveMutation.isPending}
                   className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
                 >
-                  {saveMutation.isPending ? "Saving…" : "Save"}
+                  {saveMutation.isPending ? "Savingâ¦" : "Save"}
                 </button>
               </div>
             </form>
