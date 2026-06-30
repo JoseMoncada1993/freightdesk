@@ -46,6 +46,8 @@ type Shipment = {
   pickup_at: string | null;
   eta: string | null;
   delivered_at: string | null;
+  scheduled_at: string | null;
+  delivery_at: string | null;
   notes: string | null;
 };
 
@@ -96,6 +98,19 @@ function money(n: number | null | undefined): string {
   return "$" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+function fmtDT(iso: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleString([], { year: "2-digit", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
 function cityLine(city: string | null, state: string | null, zip: string | null): string {
   const parts = [city, state].filter(Boolean).join(", ");
   return [zip, parts].filter(Boolean).join(" ");
@@ -259,7 +274,7 @@ export default function Shipments() {
       consignee_name: "", consignee_address1: "", consignee_address2: "",
       consignee_city: "", consignee_state: "", consignee_zip: "",
       consignee_contact: "", consignee_phone: "",
-      pickup_at: null, eta: null, delivered_at: null, notes: "",
+      pickup_at: null, eta: null, delivered_at: null, scheduled_at: null, delivery_at: null, notes: "",
     } as Shipment);
     setShowForm(true);
   }
@@ -385,18 +400,20 @@ export default function Shipments() {
               <th className="px-3 py-3 font-medium">Miles</th>
               <th className="px-3 py-3 font-medium">Suggested</th>
               <th className="px-3 py-3 font-medium">Rate</th>
-              <th className="px-3 py-3 font-medium">Status</th>
+              <th className="px-3 py-3 font-medium">Scheduled</th>
+                  <th className="px-3 py-3 font-medium">Delivery</th>
+                  <th className="px-3 py-3 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {shipmentsQ.isLoading && (
-              <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
+              <tr><td colSpan={15} className="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
             )}
             {shipmentsQ.error && (
-              <tr><td colSpan={13} className="px-4 py-8 text-center text-red-600">Failed to load shipments.</td></tr>
+              <tr><td colSpan={15} className="px-4 py-8 text-center text-red-600">Failed to load shipments.</td></tr>
             )}
             {!shipmentsQ.isLoading && filtered.length === 0 && (
-              <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-400">No shipments match.</td></tr>
+              <tr><td colSpan={15} className="px-4 py-8 text-center text-slate-400">No shipments match.</td></tr>
             )}
             {filtered.map((r) => {
               const age = daysSince(r.created_at);
@@ -424,6 +441,8 @@ export default function Shipments() {
                   <td className="px-3 py-3">{r._miles == null ? "-" : r._miles + " mi"}</td>
                   <td className="px-3 py-3 text-slate-600">{money(r._suggested)}</td>
                   <td className="px-3 py-3">{money(r.rate_usd)}</td>
+                  <td className="px-3 py-3 whitespace-nowrap text-slate-600">{fmtDT(r.scheduled_at)}</td>
+                  <td className="px-3 py-3 whitespace-nowrap text-slate-600">{fmtDT(r.delivery_at)}</td>
                   <td className="px-3 py-3">
                     <StatusBadge status={r.status} />
                   </td>
@@ -482,6 +501,14 @@ export default function Shipments() {
               <div>
                 <div className="text-xs uppercase text-slate-400">Suggested / Actual</div>
                 <div>{money(detail._suggested)} / {money(detail.rate_usd)}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase text-slate-400">Scheduled</div>
+                <div>{fmtDT(detail.scheduled_at)}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase text-slate-400">Delivery</div>
+                <div>{fmtDT(detail.delivery_at)}</div>
               </div>
             </div>
 
@@ -566,6 +593,12 @@ export default function Shipments() {
               </Field>
               <Field label="Commodity">
                 <input className={inp} value={editing.commodity || ""} onChange={(e) => set("commodity", e.target.value)} />
+              </Field>
+              <Field label="Scheduled (pickup)">
+                <input type="datetime-local" className={inp} value={toLocalInput(editing.scheduled_at)} onChange={(e) => set("scheduled_at", e.target.value ? new Date(e.target.value).toISOString() : null)} />
+              </Field>
+              <Field label="Delivery">
+                <input type="datetime-local" className={inp} value={toLocalInput(editing.delivery_at)} onChange={(e) => set("delivery_at", e.target.value ? new Date(e.target.value).toISOString() : null)} />
               </Field>
             </div>
 
@@ -691,35 +724,106 @@ function esc(v: unknown): string {
 }
 
 function bolHtml(list: Shipment[]): string {
-  const pages = list.map((r) => {
-    return (
-      '<div style="page-break-after:always;padding:32px;font-family:Arial,sans-serif;">' +
-      '<h1 style="text-align:center;margin:0 0 4px;">BILL OF LADING</h1>' +
-      '<div style="text-align:center;color:#555;margin-bottom:16px;">Ref ' + esc(r.ref) + ' &nbsp; BOL# ' + esc(r.bol_number) + '</div>' +
-      '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">' +
-      '<tr>' +
-      '<td style="width:50%;vertical-align:top;border:1px solid #ccc;padding:10px;">' +
-      '<b>SHIP FROM (Shipper)</b><br/>' + esc(r.shipper_name) + '<br/>' + esc(r.shipper_address1) + '<br/>' +
-      esc([r.shipper_city, r.shipper_state, r.shipper_zip].filter(Boolean).join(", ")) + '<br/>' + esc(r.shipper_phone) +
-      '</td>' +
-      '<td style="width:50%;vertical-align:top;border:1px solid #ccc;padding:10px;">' +
-      '<b>SHIP TO (Consignee)</b><br/>' + esc(r.consignee_name) + '<br/>' + esc(r.consignee_address1) + '<br/>' +
-      esc([r.consignee_city, r.consignee_state, r.consignee_zip].filter(Boolean).join(", ")) + '<br/>' + esc(r.consignee_phone) +
-      '</td>' +
-      '</tr>' +
-      '</table>' +
-      '<table style="width:100%;border-collapse:collapse;">' +
-      '<tr><td style="border:1px solid #ccc;padding:8px;"><b>Carrier</b><br/>' + esc(r.carrier_name) + '</td>' +
-      '<td style="border:1px solid #ccc;padding:8px;"><b>Type</b><br/>' + esc(r.equipment_type) + '</td>' +
-      '<td style="border:1px solid #ccc;padding:8px;"><b>Status</b><br/>' + esc(r.status) + '</td></tr>' +
-      '<tr><td colspan="3" style="border:1px solid #ccc;padding:8px;"><b>Commodity</b><br/>' + esc(r.commodity) + '</td></tr>' +
-      '</table>' +
-      '<div style="margin-top:40px;display:flex;justify-content:space-between;">' +
-      '<div>Shipper signature: ____________________</div>' +
-      '<div>Carrier signature: ____________________</div>' +
-      '</div>' +
-      '</div>'
-    );
-  }).join("");
-  return '<!doctype html><html><head><title>Bill of Lading</title></head><body onload="window.print()">' + pages + '</body></html>';
+  const esc2 = (v: unknown): string =>
+    String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" } as Record<string, string>)[c] as string);
+  const today = new Date().toLocaleDateString();
+  const inputCss =
+    "border:none;border-bottom:1px solid #999;font:inherit;width:95%;padding:1px 2px;background:transparent;";
+  const ta =
+    "border:none;font:inherit;width:98%;min-height:34px;resize:none;background:transparent;";
+  const ti = (val: string, w?: string) =>
+    '<input style="' + inputCss + (w ? "width:" + w + ";" : "") + '" value="' + esc2(val) + '"/>';
+  const pages = list
+    .map((r, idx) => {
+      const shipFrom = [r.shipper_name, r.shipper_address1, [r.shipper_city, r.shipper_state, r.shipper_zip].filter(Boolean).join(", "), r.shipper_phone ? "Phone# " + r.shipper_phone : ""].filter(Boolean).join("\n");
+      const shipTo = [r.consignee_name, r.consignee_address1, [r.consignee_city, r.consignee_state, r.consignee_zip].filter(Boolean).join(", "), r.consignee_phone ? "Phone# " + r.consignee_phone : ""].filter(Boolean).join("\n");
+      const cellB = "border:1px solid #000;padding:4px 6px;vertical-align:top;";
+      const hdr = "background:#fff;font-weight:bold;border:1px solid #000;padding:3px 6px;";
+      return (
+        '<div class="page" style="page-break-after:always;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;width:1000px;margin:0 auto 24px;">' +
+          '<table style="width:100%;border-collapse:collapse;">' +
+            '<tr>' +
+              '<td style="color:#b00;font-weight:bold;width:25%;">' + esc2(today) + '</td>' +
+              '<td style="text-align:center;font-weight:bold;font-size:13px;width:50%;">Bill of Lading - Short Form - Not Negotiable</td>' +
+              '<td style="text-align:right;width:25%;">Page 1 of 1</td>' +
+            '</tr>' +
+          '</table>' +
+          '<table style="width:100%;border-collapse:collapse;margin-top:4px;">' +
+            '<tr>' +
+              '<td style="' + hdr + 'width:55%;">Ship From</td>' +
+              '<td style="' + hdr + 'width:45%;">Bill of Lading Number:</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="' + cellB + 'height:90px;"><textarea style="' + ta + 'min-height:80px;">' + esc2(shipFrom) + '</textarea></td>' +
+              '<td style="' + cellB + 'text-align:center;font-size:22px;font-weight:bold;">' + ti(r.bol_number || "") + '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="' + hdr + '">Ship To</td>' +
+              '<td style="' + cellB + '">Carrier Name: ' + ti(r.carrier_name || "", "60%") + '<br/>Trailer number: ' + ti("", "55%") + '<br/>Seal number: ' + ti("", "57%") + '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="' + cellB + 'height:90px;"><textarea style="' + ta + 'min-height:80px;">' + esc2(shipTo) + '</textarea></td>' +
+              '<td style="' + cellB + '">SCAC: ' + ti("", "70%") + '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="' + hdr + 'text-align:center;">Third Party Freight Charges Bill to</td>' +
+              '<td style="' + cellB + '" rowspan="2"><b>Freight Charge Terms</b> (prepaid unless marked):<br/>Prepaid <b>X</b>&nbsp;&nbsp; Collect ___&nbsp;&nbsp; 3rd Party ___</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="' + cellB + 'height:50px;"><textarea style="' + ta + '">Special Instructions:</textarea></td>' +
+            '</tr>' +
+          '</table>' +
+          '<table style="width:100%;border-collapse:collapse;margin-top:6px;">' +
+            '<tr><td style="' + hdr + 'text-align:center;" colspan="4">Customer Order Information</td></tr>' +
+            '<tr>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">Customer Order No.</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;"># of Packages</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">Weight</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">Pallet/Slip (Y/N)</td>' +
+            '</tr>' +
+            [0,1,2].map(() => '<tr>' + '<td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td></tr>').join("") +
+          '</table>' +
+          '<table style="width:100%;border-collapse:collapse;margin-top:6px;">' +
+            '<tr><td style="' + hdr + 'text-align:center;" colspan="6">Carrier Information</td></tr>' +
+            '<tr>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">QTY</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">Type</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">Weight</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;width:40%;">Commodity Description</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">NMFC No.</td>' +
+              '<td style="' + cellB + 'font-weight:bold;text-align:center;">Class</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td style="' + cellB + '">' + ti("") + '</td>' +
+              '<td style="' + cellB + '">' + ti(r.equipment_type || "") + '</td>' +
+              '<td style="' + cellB + '">' + ti("") + '</td>' +
+              '<td style="' + cellB + '">' + ti(r.commodity || "") + '</td>' +
+              '<td style="' + cellB + '">' + ti("") + '</td>' +
+              '<td style="' + cellB + '">' + ti("") + '</td>' +
+            '</tr>' +
+            [0,1,2,3].map(() => '<tr><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td><td style="' + cellB + '">' + ti("") + '</td></tr>').join("") +
+          '</table>' +
+          '<table style="width:100%;border-collapse:collapse;margin-top:6px;">' +
+            '<tr>' +
+              '<td style="' + cellB + 'width:60%;">COD Amount: $ ' + ti("", "40%") + '<br/>Fee terms: Collect ___ Prepaid <b>X</b></td>' +
+              '<td style="' + cellB + '">Scheduled pickup: ' + esc2(fmtDT(r.scheduled_at)) + '<br/>Delivery: ' + esc2(fmtDT(r.delivery_at)) + '</td>' +
+            '</tr>' +
+          '</table>' +
+          '<table style="width:100%;border-collapse:collapse;margin-top:6px;">' +
+            '<tr>' +
+              '<td style="' + cellB + 'width:50%;"><b>Shipper Signature / Date</b><br/><br/>' + ti("", "90%") + '</td>' +
+              '<td style="' + cellB + '"><b>Carrier Signature / Pickup Date</b><br/><br/>' + ti("", "90%") + '</td>' +
+            '</tr>' +
+          '</table>' +
+        '</div>'
+      );
+    })
+    .join("");
+  const toolbar =
+    '<div class="noprint" style="position:sticky;top:0;background:#1e293b;padding:10px 16px;text-align:right;margin-bottom:12px;">' +
+    '<span style="color:#fff;float:left;font-family:Arial;font-size:13px;">Edit any field, then print.</span>' +
+    '<button onclick="window.print()" style="background:#4f46e5;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;">Print</button>' +
+    '</div>';
+  const style = '<style>@media print{.noprint{display:none!important;}input,textarea{border:none!important;}}body{margin:0;background:#f1f5f9;}</style>';
+  return '<!doctype html><html><head><title>Bill of Lading</title>' + style + '</head><body>' + toolbar + pages + '</body></html>';
 }
