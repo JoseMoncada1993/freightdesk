@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/lib/supabase";
 
+// Yard tables are not in the generated Supabase types yet; use an untyped client for them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as unknown as { from: (rel: string) => any };
+
 type Trailer = {
   id: number;
   site: string | null;
@@ -100,8 +104,7 @@ export default function Yard() {
   const trailersQ = useQuery({
     queryKey: ["yard_trailers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("yard_trailers_enriched")
+      const { data, error } = await db.from("yard_trailers_enriched")
         .select("*")
         .order("gate_in_at", { ascending: false });
       if (error) throw error;
@@ -130,11 +133,11 @@ export default function Yard() {
       delete cleaned.updated_at;
       if (id) {
         delete cleaned.id;
-        const { error } = await supabase.from("yard_trailers").update(cleaned).eq("id", id);
+        const { error } = await db.from("yard_trailers").update(cleaned).eq("id", id);
         if (error) throw error;
       } else {
         delete cleaned.id;
-        const { error } = await supabase.from("yard_trailers").insert(cleaned);
+        const { error } = await db.from("yard_trailers").insert(cleaned);
         if (error) throw error;
       }
     },
