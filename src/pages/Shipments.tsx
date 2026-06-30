@@ -719,10 +719,6 @@ function StatusTracker({ status }: { status: string | null }) {
   );
 }
 
-function esc(v: unknown): string {
-  return String(v ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
-}
-
 function bolHtml(list: Shipment[]): string {
   const esc2 = (v: unknown): string =>
     String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" } as Record<string, string>)[c] as string);
@@ -734,7 +730,7 @@ function bolHtml(list: Shipment[]): string {
   const ti = (val: string, w?: string) =>
     '<input style="' + inputCss + (w ? "width:" + w + ";" : "") + '" value="' + esc2(val) + '"/>';
   const pages = list
-    .map((r, idx) => {
+    .map((r) => {
       const shipFrom = [r.shipper_name, r.shipper_address1, [r.shipper_city, r.shipper_state, r.shipper_zip].filter(Boolean).join(", "), r.shipper_phone ? "Phone# " + r.shipper_phone : ""].filter(Boolean).join("\n");
       const shipTo = [r.consignee_name, r.consignee_address1, [r.consignee_city, r.consignee_state, r.consignee_zip].filter(Boolean).join(", "), r.consignee_phone ? "Phone# " + r.consignee_phone : ""].filter(Boolean).join("\n");
       const cellB = "border:1px solid #000;padding:4px 6px;vertical-align:top;";
