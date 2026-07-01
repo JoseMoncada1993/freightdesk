@@ -1,3 +1,4 @@
+// Diesel price via EIA API v2 (rebuild to inline EIA env var)
 import { useEffect, useState, useCallback } from "react";
 
 type DieselData = {
