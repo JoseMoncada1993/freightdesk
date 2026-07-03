@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -15,195 +17,257 @@ export type Database = {
       carriers: {
         Row: {
           active: boolean
-          created_at: string
-          id: number
-          mode: string
-          name: string
-          scac: string | null
-          entity_type: string | null
-          legal_name: string | null
-          dba: string | null
-          mc_number: string | null
-          usdot_number: string | null
-          ff_docket: string | null
-          ein: string | null
-          contact_name: string | null
-          contact_phone: string | null
-          contact_email: string | null
           address1: string | null
           address2: string | null
-          city: string | null
-          state: string | null
-          zip_code: string | null
-          country: string | null
-          insurance_company: string | null
-          policy_number: string | null
-          cargo_coverage: string | null
-          liability_coverage: string | null
-          coi_expiration: string | null
           authority_status: string | null
-          operating_status: string | null
-          safety_rating: string | null
-          onboarding_status: string | null
-          onboarding_date: string | null
-          factoring_company: string | null
-          remittance_name: string | null
-          document_url: string | null
-          notes: string | null
-          w9_file_path: string | null
-          coi_file_path: string | null
-          w9_received: boolean
-          coi_received: boolean
+          cargo_coverage: string | null
           carrier_packet_received: boolean
+          city: string | null
+          coi_expiration: string | null
+          coi_file_path: string | null
+          coi_received: boolean
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          country: string | null
+          created_at: string
+          dba: string | null
+          document_url: string | null
+          ein: string | null
+          entity_type: string | null
+          factoring_company: string | null
+          ff_docket: string | null
+          id: number
           identity_verified: boolean
+          insurance_company: string | null
+          legal_name: string | null
+          liability_coverage: string | null
+          mc_number: string | null
+          mode: string
+          name: string
+          notes: string | null
+          onboarding_date: string | null
+          onboarding_status: string | null
+          operating_status: string | null
           phone_verified: boolean
+          policy_number: string | null
+          remittance_name: string | null
+          safety_rating: string | null
+          scac: string | null
+          state: string | null
+          usdot_number: string | null
+          w9_file_path: string | null
+          w9_received: boolean
+          zip_code: string | null
         }
         Insert: {
           active?: boolean
-          created_at?: string
-          id?: never
-          mode?: string
-          name: string
-          scac?: string | null
-          entity_type?: string | null
-          legal_name?: string | null
-          dba?: string | null
-          mc_number?: string | null
-          usdot_number?: string | null
-          ff_docket?: string | null
-          ein?: string | null
-          contact_name?: string | null
-          contact_phone?: string | null
-          contact_email?: string | null
           address1?: string | null
           address2?: string | null
-          city?: string | null
-          state?: string | null
-          zip_code?: string | null
-          country?: string | null
-          insurance_company?: string | null
-          policy_number?: string | null
-          cargo_coverage?: string | null
-          liability_coverage?: string | null
-          coi_expiration?: string | null
           authority_status?: string | null
-          operating_status?: string | null
-          safety_rating?: string | null
-          onboarding_status?: string | null
-          onboarding_date?: string | null
-          factoring_company?: string | null
-          remittance_name?: string | null
-          document_url?: string | null
-          notes?: string | null
-          w9_file_path?: string | null
-          coi_file_path?: string | null
-          w9_received?: boolean
-          coi_received?: boolean
+          cargo_coverage?: string | null
           carrier_packet_received?: boolean
+          city?: string | null
+          coi_expiration?: string | null
+          coi_file_path?: string | null
+          coi_received?: boolean
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string | null
+          created_at?: string
+          dba?: string | null
+          document_url?: string | null
+          ein?: string | null
+          entity_type?: string | null
+          factoring_company?: string | null
+          ff_docket?: string | null
+          id?: never
           identity_verified?: boolean
+          insurance_company?: string | null
+          legal_name?: string | null
+          liability_coverage?: string | null
+          mc_number?: string | null
+          mode?: string
+          name: string
+          notes?: string | null
+          onboarding_date?: string | null
+          onboarding_status?: string | null
+          operating_status?: string | null
           phone_verified?: boolean
+          policy_number?: string | null
+          remittance_name?: string | null
+          safety_rating?: string | null
+          scac?: string | null
+          state?: string | null
+          usdot_number?: string | null
+          w9_file_path?: string | null
+          w9_received?: boolean
+          zip_code?: string | null
         }
         Update: {
           active?: boolean
-          created_at?: string
-          id?: never
-          mode?: string
-          name?: string
-          scac?: string | null
-          entity_type?: string | null
-          legal_name?: string | null
-          dba?: string | null
-          mc_number?: string | null
-          usdot_number?: string | null
-          ff_docket?: string | null
-          ein?: string | null
-          contact_name?: string | null
-          contact_phone?: string | null
-          contact_email?: string | null
           address1?: string | null
           address2?: string | null
-          city?: string | null
-          state?: string | null
-          zip_code?: string | null
-          country?: string | null
-          insurance_company?: string | null
-          policy_number?: string | null
-          cargo_coverage?: string | null
-          liability_coverage?: string | null
-          coi_expiration?: string | null
           authority_status?: string | null
-          operating_status?: string | null
-          safety_rating?: string | null
-          onboarding_status?: string | null
-          onboarding_date?: string | null
-          factoring_company?: string | null
-          remittance_name?: string | null
-          document_url?: string | null
-          notes?: string | null
-          w9_file_path?: string | null
-          coi_file_path?: string | null
-          w9_received?: boolean
-          coi_received?: boolean
+          cargo_coverage?: string | null
           carrier_packet_received?: boolean
+          city?: string | null
+          coi_expiration?: string | null
+          coi_file_path?: string | null
+          coi_received?: boolean
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string | null
+          created_at?: string
+          dba?: string | null
+          document_url?: string | null
+          ein?: string | null
+          entity_type?: string | null
+          factoring_company?: string | null
+          ff_docket?: string | null
+          id?: never
           identity_verified?: boolean
+          insurance_company?: string | null
+          legal_name?: string | null
+          liability_coverage?: string | null
+          mc_number?: string | null
+          mode?: string
+          name?: string
+          notes?: string | null
+          onboarding_date?: string | null
+          onboarding_status?: string | null
+          operating_status?: string | null
           phone_verified?: boolean
+          policy_number?: string | null
+          remittance_name?: string | null
+          safety_rating?: string | null
+          scac?: string | null
+          state?: string | null
+          usdot_number?: string | null
+          w9_file_path?: string | null
+          w9_received?: boolean
+          zip_code?: string | null
         }
         Relationships: []
+      }
+      customer_addresses: {
+        Row: {
+          address1: string | null
+          address2: string | null
+          business_hours: string | null
+          city: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          customer_id: number
+          facility_type: string | null
+          id: number
+          is_default: boolean
+          label: string
+          special_instructions: string | null
+          state: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address1?: string | null
+          address2?: string | null
+          business_hours?: string | null
+          city?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          customer_id: number
+          facility_type?: string | null
+          id?: never
+          is_default?: boolean
+          label: string
+          special_instructions?: string | null
+          state?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address1?: string | null
+          address2?: string | null
+          business_hours?: string | null
+          city?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          customer_id?: number
+          facility_type?: string | null
+          id?: never
+          is_default?: boolean
+          label?: string
+          special_instructions?: string | null
+          state?: string | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
           active: boolean
-          contact_email: string | null
-          contact_phone: string | null
-          created_at: string
-          id: number
-          name: string
           address1: string | null
           address2: string | null
           business_hours: string | null
           city: string | null
           company_name: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
           facility_type: string | null
           first_name: string | null
+          id: number
           last_name: string | null
+          name: string | null
           special_instructions: string | null
           state: string | null
           zip_code: string | null
         }
         Insert: {
           active?: boolean
-          contact_email?: string | null
-          contact_phone?: string | null
-          created_at?: string
-          id?: never
-          name?: string
           address1?: string | null
           address2?: string | null
           business_hours?: string | null
           city?: string | null
           company_name?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
           facility_type?: string | null
           first_name?: string | null
+          id?: never
           last_name?: string | null
+          name?: string | null
           special_instructions?: string | null
           state?: string | null
           zip_code?: string | null
         }
         Update: {
           active?: boolean
-          contact_email?: string | null
-          contact_phone?: string | null
-          created_at?: string
-          id?: never
-          name?: string
           address1?: string | null
           address2?: string | null
           business_hours?: string | null
           city?: string | null
           company_name?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
           facility_type?: string | null
           first_name?: string | null
+          id?: never
           last_name?: string | null
+          name?: string | null
           special_instructions?: string | null
           state?: string | null
           zip_code?: string | null
@@ -240,6 +304,153 @@ export type Database = {
             referencedRelation: "loads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "documents_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: number | null
+          description: string
+          id: number
+          sku: string
+          unit_value_usd: number | null
+          unit_weight_lbs: number | null
+          uom: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id?: number | null
+          description: string
+          id?: never
+          sku: string
+          unit_value_usd?: number | null
+          unit_weight_lbs?: number | null
+          uom?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: number | null
+          description?: string
+          id?: never
+          sku?: string
+          unit_value_usd?: number | null
+          unit_weight_lbs?: number | null
+          uom?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_levels: {
+        Row: {
+          id: number
+          item_id: number
+          qty_allocated: number
+          qty_on_hand: number
+          reorder_point: number | null
+          updated_at: string
+          warehouse_id: number
+        }
+        Insert: {
+          id?: never
+          item_id: number
+          qty_allocated?: number
+          qty_on_hand?: number
+          reorder_point?: number | null
+          updated_at?: string
+          warehouse_id: number
+        }
+        Update: {
+          id?: never
+          item_id?: number
+          qty_allocated?: number
+          qty_on_hand?: number
+          reorder_point?: number | null
+          updated_at?: string
+          warehouse_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_levels_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_levels_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements: {
+        Row: {
+          created_at: string
+          id: number
+          item_id: number
+          load_ref: string | null
+          movement_type: string
+          notes: string | null
+          occurred_at: string
+          qty: number
+          warehouse_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          item_id: number
+          load_ref?: string | null
+          movement_type: string
+          notes?: string | null
+          occurred_at?: string
+          qty: number
+          warehouse_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          item_id?: number
+          load_ref?: string | null
+          movement_type?: string
+          notes?: string | null
+          occurred_at?: string
+          qty?: number
+          warehouse_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       lanes: {
@@ -268,139 +479,166 @@ export type Database = {
       }
       loads: {
         Row: {
-          carrier_id: number | null
-          created_at: string
-          customer_id: number | null
-          delivered_at: string | null
-          eta: string | null
-          id: number
-          lane_id: number | null
-          on_time: boolean | null
-          pickup_at: string | null
-          rate_usd: number | null
-          ref: string
-          status: string
-          updated_at: string
-          weight_lbs: number | null
-          entity: string | null
-          equipment_type: string | null
+          archived: boolean
           bol_number: string | null
+          carrier_id: number | null
+          carrier_pay_usd: number | null
           commodity: string | null
-          origin_city: string | null
-          origin_state: string | null
-          origin_zip: string | null
-          dest_city: string | null
-          dest_state: string | null
-          dest_zip: string | null
-          shipper_name: string | null
-          shipper_address1: string | null
-          shipper_address2: string | null
-          shipper_city: string | null
-          shipper_state: string | null
-          shipper_zip: string | null
-          shipper_contact: string | null
-          shipper_phone: string | null
-          consignee_name: string | null
           consignee_address1: string | null
           consignee_address2: string | null
           consignee_city: string | null
+          consignee_contact: string | null
+          consignee_name: string | null
+          consignee_phone: string | null
           consignee_state: string | null
           consignee_zip: string | null
-          consignee_contact: string | null
-          consignee_phone: string | null
-          notes: string | null
-          rate_per_mile: number | null
+          created_at: string
+          customer_id: number | null
+          delivered_at: string | null
+          delivery_at: string | null
+          dest_city: string | null
+          dest_state: string | null
+          dest_zip: string | null
+          entity: string | null
+          equipment_type: string | null
+          eta: string | null
+          id: number
+          invoice_due_date: string | null
+          invoice_number: string | null
+          invoiced_at: string | null
+          lane_id: number | null
           miles_calc: number | null
+          notes: string | null
+          on_time: boolean | null
+          paid_at: string | null
+          origin_city: string | null
+          origin_state: string | null
+          origin_zip: string | null
+          pickup_at: string | null
+          rate_per_mile: number | null
+          rate_usd: number | null
+          ref: string
+          scheduled_at: string | null
+          shipper_address1: string | null
+          shipper_address2: string | null
+          shipper_city: string | null
+          shipper_contact: string | null
+          shipper_name: string | null
+          shipper_phone: string | null
+          shipper_state: string | null
+          shipper_zip: string | null
+          status: string
+          transport_type: string | null
+          updated_at: string
+          weight_lbs: number | null
         }
         Insert: {
+          archived?: boolean
+          bol_number?: string | null
           carrier_id?: number | null
+          carrier_pay_usd?: number | null
+          commodity?: string | null
+          consignee_address1?: string | null
+          consignee_address2?: string | null
+          consignee_city?: string | null
+          consignee_contact?: string | null
+          consignee_name?: string | null
+          consignee_phone?: string | null
+          consignee_state?: string | null
+          consignee_zip?: string | null
           created_at?: string
           customer_id?: number | null
           delivered_at?: string | null
+          delivery_at?: string | null
+          dest_city?: string | null
+          dest_state?: string | null
+          dest_zip?: string | null
+          entity?: string | null
+          equipment_type?: string | null
           eta?: string | null
           id?: never
+          invoice_due_date?: string | null
+          invoice_number?: string | null
+          invoiced_at?: string | null
           lane_id?: number | null
+          miles_calc?: number | null
+          notes?: string | null
           on_time?: boolean | null
+          paid_at?: string | null
+          origin_city?: string | null
+          origin_state?: string | null
+          origin_zip?: string | null
           pickup_at?: string | null
+          rate_per_mile?: number | null
           rate_usd?: number | null
           ref: string
-          status?: string
-          updated_at?: string
-          weight_lbs?: number | null
-          entity?: string | null
-          equipment_type?: string | null
-          bol_number?: string | null
-          commodity?: string | null
-          origin_city?: string | null
-          origin_state?: string | null
-          origin_zip?: string | null
-          dest_city?: string | null
-          dest_state?: string | null
-          dest_zip?: string | null
-          shipper_name?: string | null
+          scheduled_at?: string | null
           shipper_address1?: string | null
           shipper_address2?: string | null
           shipper_city?: string | null
+          shipper_contact?: string | null
+          shipper_name?: string | null
+          shipper_phone?: string | null
           shipper_state?: string | null
           shipper_zip?: string | null
-          shipper_contact?: string | null
-          shipper_phone?: string | null
-          consignee_name?: string | null
+          status?: string
+          transport_type?: string | null
+          updated_at?: string
+          weight_lbs?: number | null
+        }
+        Update: {
+          archived?: boolean
+          bol_number?: string | null
+          carrier_id?: number | null
+          carrier_pay_usd?: number | null
+          commodity?: string | null
           consignee_address1?: string | null
           consignee_address2?: string | null
           consignee_city?: string | null
+          consignee_contact?: string | null
+          consignee_name?: string | null
+          consignee_phone?: string | null
           consignee_state?: string | null
           consignee_zip?: string | null
-          consignee_contact?: string | null
-          consignee_phone?: string | null
-          notes?: string | null
-          rate_per_mile?: number | null
-          miles_calc?: number | null
-        }
-        Update: {
-          carrier_id?: number | null
           created_at?: string
           customer_id?: number | null
           delivered_at?: string | null
-          eta?: string | null
-          id?: never
-          lane_id?: number | null
-          on_time?: boolean | null
-          pickup_at?: string | null
-          rate_usd?: number | null
-          ref?: string
-          status?: string
-          updated_at?: string
-          weight_lbs?: number | null
-          entity?: string | null
-          equipment_type?: string | null
-          bol_number?: string | null
-          commodity?: string | null
-          origin_city?: string | null
-          origin_state?: string | null
-          origin_zip?: string | null
+          delivery_at?: string | null
           dest_city?: string | null
           dest_state?: string | null
           dest_zip?: string | null
-          shipper_name?: string | null
+          entity?: string | null
+          equipment_type?: string | null
+          eta?: string | null
+          id?: never
+          invoice_due_date?: string | null
+          invoice_number?: string | null
+          invoiced_at?: string | null
+          lane_id?: number | null
+          miles_calc?: number | null
+          notes?: string | null
+          on_time?: boolean | null
+          paid_at?: string | null
+          origin_city?: string | null
+          origin_state?: string | null
+          origin_zip?: string | null
+          pickup_at?: string | null
+          rate_per_mile?: number | null
+          rate_usd?: number | null
+          ref?: string
+          scheduled_at?: string | null
           shipper_address1?: string | null
           shipper_address2?: string | null
           shipper_city?: string | null
+          shipper_contact?: string | null
+          shipper_name?: string | null
+          shipper_phone?: string | null
           shipper_state?: string | null
           shipper_zip?: string | null
-          shipper_contact?: string | null
-          shipper_phone?: string | null
-          consignee_name?: string | null
-          consignee_address1?: string | null
-          consignee_address2?: string | null
-          consignee_city?: string | null
-          consignee_state?: string | null
-          consignee_zip?: string | null
-          consignee_contact?: string | null
-          consignee_phone?: string | null
-          notes?: string | null
-          rate_per_mile?: number | null
-          miles_calc?: number | null
+          status?: string
+          transport_type?: string | null
+          updated_at?: string
+          weight_lbs?: number | null
         }
         Relationships: [
           {
@@ -426,39 +664,63 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
+          archived: boolean
           assignee: string | null
           created_at: string
           due_date: string | null
           id: number
           load_id: number | null
+          notes: string | null
           status: string
           title: string
-          notes: string | null
-          archived: boolean
         }
         Insert: {
+          archived?: boolean
           assignee?: string | null
           created_at?: string
           due_date?: string | null
           id?: never
           load_id?: number | null
+          notes?: string | null
           status?: string
           title: string
-          notes?: string | null
-          archived?: boolean
         }
         Update: {
+          archived?: boolean
           assignee?: string | null
           created_at?: string
           due_date?: string | null
           id?: never
           load_id?: number | null
+          notes?: string | null
           status?: string
           title?: string
-          notes?: string | null
-          archived?: boolean
         }
         Relationships: [
           {
@@ -468,29 +730,308 @@ export type Database = {
             referencedRelation: "loads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tasks_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouses: {
+        Row: {
+          active: boolean
+          address1: string | null
+          city: string | null
+          code: string
+          created_at: string
+          dock_doors: number | null
+          id: number
+          name: string
+          state: string | null
+          trailer_spots: number | null
+          zip_code: string | null
+        }
+        Insert: {
+          active?: boolean
+          address1?: string | null
+          city?: string | null
+          code: string
+          created_at?: string
+          dock_doors?: number | null
+          id?: never
+          name: string
+          state?: string | null
+          trailer_spots?: number | null
+          zip_code?: string | null
+        }
+        Update: {
+          active?: boolean
+          address1?: string | null
+          city?: string | null
+          code?: string
+          created_at?: string
+          dock_doors?: number | null
+          id?: never
+          name?: string
+          state?: string | null
+          trailer_spots?: number | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      yard_trailers: {
+        Row: {
+          archived: boolean
+          carrier_id: number | null
+          condition: string | null
+          contents: string | null
+          created_at: string | null
+          gate_in_at: string | null
+          gate_out_at: string | null
+          id: number
+          load_ref: string | null
+          notes: string | null
+          seal_no: string | null
+          site: string
+          spot: string | null
+          status: string
+          trailer_no: string
+          updated_at: string | null
+        }
+        Insert: {
+          archived?: boolean
+          carrier_id?: number | null
+          condition?: string | null
+          contents?: string | null
+          created_at?: string | null
+          gate_in_at?: string | null
+          gate_out_at?: string | null
+          id?: never
+          load_ref?: string | null
+          notes?: string | null
+          seal_no?: string | null
+          site: string
+          spot?: string | null
+          status?: string
+          trailer_no: string
+          updated_at?: string | null
+        }
+        Update: {
+          archived?: boolean
+          carrier_id?: number | null
+          condition?: string | null
+          contents?: string | null
+          created_at?: string | null
+          gate_in_at?: string | null
+          gate_out_at?: string | null
+          id?: never
+          load_ref?: string | null
+          notes?: string | null
+          seal_no?: string | null
+          site?: string
+          spot?: string | null
+          status?: string
+          trailer_no?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yard_trailers_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
+      inventory_levels_enriched: {
+        Row: {
+          customer_name: string | null
+          description: string | null
+          id: number | null
+          item_id: number | null
+          low_stock: boolean | null
+          qty_allocated: number | null
+          qty_available: number | null
+          qty_on_hand: number | null
+          reorder_point: number | null
+          sku: string | null
+          unit_weight_lbs: number | null
+          uom: string | null
+          updated_at: string | null
+          warehouse_code: string | null
+          warehouse_id: number | null
+          warehouse_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_levels_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_levels_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_movements_enriched: {
+        Row: {
+          description: string | null
+          id: number | null
+          item_id: number | null
+          load_ref: string | null
+          movement_type: string | null
+          notes: string | null
+          occurred_at: string | null
+          qty: number | null
+          sku: string | null
+          warehouse_code: string | null
+          warehouse_id: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loads_enriched: {
         Row: {
+          archived: boolean | null
+          bol_number: string | null
+          carrier_id: number | null
           carrier_mode: string | null
           carrier_name: string | null
+          carrier_pay_usd: number | null
+          carrier_scac: string | null
+          margin_usd: number | null
+          commodity: string | null
+          consignee_address1: string | null
+          consignee_address2: string | null
+          consignee_city: string | null
+          consignee_contact: string | null
+          consignee_name: string | null
+          consignee_phone: string | null
+          consignee_state: string | null
+          consignee_zip: string | null
+          created_at: string | null
+          customer_id: number | null
+          customer_name: string | null
           delivered_at: string | null
+          delivery_at: string | null
+          dest_city: string | null
+          dest_state: string | null
+          dest_zip: string | null
           destination: string | null
+          entity: string | null
+          equipment_type: string | null
           eta: string | null
           id: number | null
+          invoice_due_date: string | null
+          invoice_number: string | null
+          invoiced_at: string | null
           lane: string | null
+          lane_id: number | null
+          paid_at: string | null
           miles: number | null
+          miles_calc: number | null
+          notes: string | null
           on_time: boolean | null
           origin: string | null
+          origin_city: string | null
+          origin_state: string | null
+          origin_zip: string | null
           pickup_at: string | null
+          rate_per_mile: number | null
           rate_usd: number | null
           ref: string | null
+          scheduled_at: string | null
+          shipper_address1: string | null
+          shipper_address2: string | null
+          shipper_city: string | null
+          shipper_contact: string | null
+          shipper_name: string | null
+          shipper_phone: string | null
+          shipper_state: string | null
+          shipper_zip: string | null
           status: string | null
+          transport_type: string | null
+          updated_at: string | null
           weight_lbs: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "loads_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_lane_id_fkey"
+            columns: ["lane_id"]
+            isOneToOne: false
+            referencedRelation: "lanes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      yard_trailers_enriched: {
+        Row: {
+          archived: boolean | null
+          carrier_id: number | null
+          carrier_name: string | null
+          condition: string | null
+          contents: string | null
+          created_at: string | null
+          gate_in_at: string | null
+          gate_out_at: string | null
+          id: number | null
+          load_ref: string | null
+          notes: string | null
+          seal_no: string | null
+          site: string | null
+          spot: string | null
+          status: string | null
+          trailer_no: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yard_trailers_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -508,6 +1049,17 @@ export type Database = {
         }
         Returns: number
       }
+      record_inventory_movement: {
+        Args: {
+          p_item_id: number
+          p_load_ref?: string
+          p_movement_type: string
+          p_notes?: string
+          p_qty: number
+          p_warehouse_id: number
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
@@ -517,3 +1069,126 @@ export type Database = {
     }
   }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

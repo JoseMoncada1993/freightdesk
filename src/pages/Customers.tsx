@@ -1,284 +1,404 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
+import ImportCsvModal from "@/components/ImportCsvModal";
+import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
 import { supabase } from "@/lib/supabase";
+import {
+  useAddCustomerAddress,
+  useCustomerAddresses,
+  useCustomers,
+  useDeleteCustomerAddress,
+  useUpdateCustomerAddress,
+} from "@/hooks/useTables";
+import type { CustomerAddress } from "@/lib/types";
+import { useAddCustomer, useUpdateCustomer } from "@/hooks/useMutations";
+import { exportCsv, exportButtonProps } from "@/lib/csv";
+import type { Customer } from "@/lib/types";
 
-type CustomerRow = {
-  id: number;
-  first_name: string | null;
-  last_name: string | null;
-  company_name: string | null;
-  address1: string | null;
-  address2: string | null;
-  city: string | null;
-  state: string | null;
-  zip_code: string | null;
-  contact_phone: string | null;
-  business_hours: string | null;
-  facility_type: string | null;
-  special_instructions: string | null;
-  contact_email: string | null;
-};
+function AddressBook({ customerId }: { customerId: number }) {
+  const addresses = useCustomerAddresses();
+  const addAddr = useAddCustomerAddress();
+  const updateAddr = useUpdateCustomerAddress();
+  const delAddr = useDeleteCustomerAddress();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [label, setLabel] = useState("");
+  const [address1, setAddress1] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [zip, setZip] = useState("");
+  const [contact, setContact] = useState("");
+  const [phone, setPhone] = useState("");
+  const [facilityType, setFacilityType] = useState("");
+  const [hours, setHours] = useState("");
+  const [instructions, setInstructions] = useState("");
 
-type FormState = {
-  first_name: string;
-  last_name: string;
-  company_name: string;
-  address1: string;
-  address2: string;
-  city: string;
-  state: string;
-  zip_code: string;
-  contact_phone: string;
-  business_hours: string;
-  facility_type: string;
-  special_instructions: string;
-  contact_email: string;
-};
+  const list = (addresses.data ?? []).filter((a) => a.customer_id === customerId);
+  const pending = addAddr.isPending || updateAddr.isPending;
+  const canSave = label.trim() !== "" && !pending;
 
-const EMPTY_FORM: FormState = {
-  first_name: "",
-  last_name: "",
-  company_name: "",
-  address1: "",
-  address2: "",
-  city: "",
-  state: "",
-  zip_code: "",
-  contact_phone: "",
-  business_hours: "",
-  facility_type: "",
-  special_instructions: "",
-  contact_email: "",
-};
-
-const FIELDS: { key: keyof FormState; label: string; type?: string }[] = [
-  { key: "first_name", label: "First Name" },
-  { key: "last_name", label: "Last Name" },
-  { key: "company_name", label: "Company Name" },
-  { key: "address1", label: "Address 1" },
-  { key: "address2", label: "Address 2" },
-  { key: "city", label: "City" },
-  { key: "state", label: "State" },
-  { key: "zip_code", label: "Zip Code" },
-  { key: "contact_phone", label: "Phone Number" },
-  { key: "business_hours", label: "Business Hours" },
-  { key: "facility_type", label: "Type of Facility" },
-  { key: "special_instructions", label: "Special Instructions", type: "textarea" },
-  { key: "contact_email", label: "Email", type: "email" },
-];
-
-function rowToForm(row: CustomerRow): FormState {
-  return {
-    first_name: row.first_name ?? "",
-    last_name: row.last_name ?? "",
-    company_name: row.company_name ?? "",
-    address1: row.address1 ?? "",
-    address2: row.address2 ?? "",
-    city: row.city ?? "",
-    state: row.state ?? "",
-    zip_code: row.zip_code ?? "",
-    contact_phone: row.contact_phone ?? "",
-    business_hours: row.business_hours ?? "",
-    facility_type: row.facility_type ?? "",
-    special_instructions: row.special_instructions ?? "",
-    contact_email: row.contact_email ?? "",
+  const openForm = (a: CustomerAddress | null) => {
+    setEditingId(a?.id ?? null);
+    setLabel(a?.label ?? "");
+    setAddress1(a?.address1 ?? "");
+    setCity(a?.city ?? "");
+    setState(a?.state ?? "");
+    setZip(a?.zip_code ?? "");
+    setContact(a?.contact_name ?? "");
+    setPhone(a?.contact_phone ?? "");
+    setFacilityType(a?.facility_type ?? "");
+    setHours(a?.business_hours ?? "");
+    setInstructions(a?.special_instructions ?? "");
+    setFormOpen(true);
   };
+
+  const handleSave = () => {
+    const payload = {
+      label: label.trim(),
+      address1: address1.trim() || null,
+      city: city.trim() || null,
+      state: state.trim() || null,
+      zip_code: zip.trim() || null,
+      contact_name: contact.trim() || null,
+      contact_phone: phone.trim() || null,
+      facility_type: facilityType.trim() || null,
+      business_hours: hours.trim() || null,
+      special_instructions: instructions.trim() || null,
+    };
+    const opts = { onSuccess: () => setFormOpen(false) };
+    if (editingId != null) {
+      updateAddr.mutate({ id: editingId, ...payload }, opts);
+    } else {
+      addAddr.mutate({ customer_id: customerId, ...payload }, opts);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-700">Additional addresses ({list.length})</p>
+        {!formOpen && (
+          <button type="button" onClick={() => openForm(null)} className="text-blue-600 hover:underline text-xs font-medium">
+            + Add address
+          </button>
+        )}
+      </div>
+      {list.map((a) => (
+        <div key={a.id} className="rounded-md bg-white border border-slate-200 px-3 py-2 text-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="font-medium">{a.label}</span>
+              <span className="text-slate-500">
+                {" — "}
+                {[a.address1, [a.city, a.state].filter(Boolean).join(", "), a.zip_code].filter(Boolean).join(", ") || "no address"}
+                {a.contact_name ? ` · ${a.contact_name}` : ""}
+              </span>
+              {(a.facility_type || a.business_hours || a.special_instructions) && (
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {[a.facility_type, a.business_hours, a.special_instructions].filter(Boolean).join(" · ")}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 ml-3 whitespace-nowrap">
+              <button type="button" onClick={() => openForm(a)} className="text-blue-600 hover:underline text-xs font-medium">
+                Edit
+              </button>
+              <button type="button" onClick={() => delAddr.mutate(a.id)} className="text-slate-400 hover:text-red-600 text-xs font-medium">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      {list.length === 0 && !formOpen && (
+        <p className="text-xs text-slate-400">No extra addresses yet — the main address above is used by default.</p>
+      )}
+      {formOpen && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Label * (e.g. Dallas DC, Dock 7)">
+              <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Address">
+              <input value={address1} onChange={(e) => setAddress1(e.target.value)} className={inputCls} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-5 gap-3">
+            <Field label="City">
+              <input value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="State">
+              <input value={state} onChange={(e) => setState(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="ZIP">
+              <input value={zip} onChange={(e) => setZip(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Contact">
+              <input value={contact} onChange={(e) => setContact(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Phone">
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Facility type">
+              <input value={facilityType} onChange={(e) => setFacilityType(e.target.value)} placeholder="Warehouse, DC, retail…" className={inputCls} />
+            </Field>
+            <Field label="Business hours">
+              <input value={hours} onChange={(e) => setHours(e.target.value)} placeholder="M-F 8am-5pm" className={inputCls} />
+            </Field>
+          </div>
+          <Field label="Special instructions">
+            <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={2} className={inputCls} />
+          </Field>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {pending ? "Saving…" : editingId != null ? "Save changes" : "Save address"}
+            </button>
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100">
+              Cancel
+            </button>
+          </div>
+          <ErrorText error={addAddr.error ?? updateAddr.error} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerForm({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
+  const add = useAddCustomer();
+  const update = useUpdateCustomer();
+  const editing = customer != null;
+
+  const [name, setName] = useState(customer?.name ?? "");
+  const [companyName, setCompanyName] = useState(customer?.company_name ?? "");
+  const [email, setEmail] = useState(customer?.contact_email ?? "");
+  const [phone, setPhone] = useState(customer?.contact_phone ?? "");
+  const [address1, setAddress1] = useState(customer?.address1 ?? "");
+  const [city, setCity] = useState(customer?.city ?? "");
+  const [state, setState] = useState(customer?.state ?? "");
+  const [zip, setZip] = useState(customer?.zip_code ?? "");
+  const [facilityType, setFacilityType] = useState(customer?.facility_type ?? "");
+  const [hours, setHours] = useState(customer?.business_hours ?? "");
+  const [instructions, setInstructions] = useState(customer?.special_instructions ?? "");
+
+  const pending = add.isPending || update.isPending;
+  const canSubmit = name.trim() !== "" && !pending;
+
+  const handleSubmit = () => {
+    const payload = {
+      name: name.trim(),
+      company_name: companyName.trim() || null,
+      contact_email: email.trim() || null,
+      contact_phone: phone.trim() || null,
+      address1: address1.trim() || null,
+      city: city.trim() || null,
+      state: state.trim() || null,
+      zip_code: zip.trim() || null,
+      facility_type: facilityType.trim() || null,
+      business_hours: hours.trim() || null,
+      special_instructions: instructions.trim() || null,
+    };
+    if (editing) {
+      update.mutate({ id: customer.id, ...payload }, { onSuccess: onClose });
+    } else {
+      add.mutate(payload, { onSuccess: onClose });
+    }
+  };
+
+  return (
+    <Modal
+      title={editing ? `Edit ${customer.name ?? "customer"}` : "Add customer"}
+      onClose={onClose}
+      wide
+      footer={
+        <ModalActions
+          onCancel={onClose}
+          onSubmit={handleSubmit}
+          submitLabel={editing ? "Save changes" : "Add customer"}
+          pending={pending}
+          disabled={!canSubmit}
+        />
+      }
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Name *">
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="Company">
+          <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="Email">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className={inputCls} />
+        </Field>
+        <Field label="Phone">
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+        </Field>
+      </div>
+      <Field label="Address">
+        <input value={address1} onChange={(e) => setAddress1(e.target.value)} className={inputCls} />
+      </Field>
+      <div className="grid grid-cols-3 gap-4">
+        <Field label="City">
+          <input value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="State">
+          <input value={state} onChange={(e) => setState(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="ZIP">
+          <input value={zip} onChange={(e) => setZip(e.target.value)} className={inputCls} />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Facility type">
+          <input value={facilityType} onChange={(e) => setFacilityType(e.target.value)} placeholder="Warehouse, DC, retail…" className={inputCls} />
+        </Field>
+        <Field label="Business hours">
+          <input value={hours} onChange={(e) => setHours(e.target.value)} placeholder="M-F 8am-5pm" className={inputCls} />
+        </Field>
+      </div>
+      <Field label="Special instructions">
+        <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={2} className={inputCls} />
+      </Field>
+      {editing ? (
+        <AddressBook customerId={customer.id} />
+      ) : (
+        <p className="text-xs text-slate-400">
+          Tip: save the customer first, then reopen with Edit to add more addresses (docks, DCs, billing).
+        </p>
+      )}
+      <ErrorText error={add.error ?? update.error} />
+    </Modal>
+  );
 }
 
 export default function Customers() {
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["customers"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as CustomerRow[];
-    },
-  });
-
-  const save = useMutation({
-    mutationFn: async (payload: FormState) => {
-      const record = {
-        ...payload,
-        name:
-          [payload.first_name, payload.last_name].filter(Boolean).join(" ") ||
-          payload.company_name ||
-          "",
-      };
-      if (editingId) {
-        const { error } = await supabase
-          .from("customers")
-          .update(record)
-          .eq("id", editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("customers").insert(record);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      setOpen(false);
-      setForm(EMPTY_FORM);
-      setEditingId(null);
-    },
-  });
-
-  function openAdd() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setOpen(true);
-  }
-
-  function openEdit(row: CustomerRow) {
-    setEditingId(row.id);
-    setForm(rowToForm(row));
-    setOpen(true);
-  }
-
-  function closeModal() {
-    setOpen(false);
-    setForm(EMPTY_FORM);
-    setEditingId(null);
-    save.reset();
-  }
+  const { data, isLoading, error } = useCustomers();
+  const update = useUpdateCustomer();
+  const qc = useQueryClient();
+  const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
 
   return (
     <div>
       <PageHeader
         title="Customers"
-        subtitle="Customer records and contacts"
+        subtitle="Customer records, facilities and contacts"
         action={
-          <button
-            onClick={openAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
-          >
-            New Customer
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                exportCsv(
+                  (data ?? []).map((c) => ({
+                    name: c.name, company: c.company_name, email: c.contact_email, phone: c.contact_phone,
+                    address: c.address1, city: c.city, state: c.state, zip: c.zip_code,
+                    facility_type: c.facility_type, business_hours: c.business_hours,
+                    special_instructions: c.special_instructions, active: c.active,
+                  })),
+                  "customers",
+                )
+              }
+              {...exportButtonProps(data?.length ?? 0)}
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={() => setShowImport(true)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Import CSV
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              + Add customer
+            </button>
+          </div>
         }
       />
-
-      <DataTable<CustomerRow>
+      <DataTable<Customer>
         rows={data}
         isLoading={isLoading}
-        error={error as Error | null}
+        error={error}
         rowKey={(r) => r.id}
-        empty={"No customers yet. Use the New Customer button to add one."}
         columns={[
-          {
-            header: "Name",
-            cell: (r) =>
-              [r.first_name, r.last_name].filter(Boolean).join(" ") || "—",
-          },
+          { header: "Name", cell: (r) => <span className="font-medium">{r.name ?? "—"}</span> },
           { header: "Company", cell: (r) => r.company_name ?? "—" },
-          { header: "City", cell: (r) => r.city ?? "—" },
-          { header: "State", cell: (r) => r.state ?? "—" },
-          { header: "Phone", cell: (r) => r.contact_phone ?? "—" },
           { header: "Email", cell: (r) => r.contact_email ?? "—" },
+          { header: "Phone", cell: (r) => r.contact_phone ?? "—" },
+          { header: "Location", cell: (r) => [r.city, r.state].filter(Boolean).join(", ") || "—" },
+          { header: "Facility", cell: (r) => r.facility_type ?? "—" },
+          {
+            header: "Active",
+            cell: (r) => (
+              <button
+                onClick={() => update.mutate({ id: r.id, active: !r.active })}
+                className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
+                title="Click to toggle"
+              >
+                {r.active ? "Active" : "Inactive"}
+              </button>
+            ),
+          },
           {
             header: "",
             cell: (r) => (
-              <button
-                onClick={() => openEdit(r)}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
+              <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
                 Edit
               </button>
             ),
           },
         ]}
       />
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 className="text-lg font-semibold">
-                {editingId ? "Edit Customer" : "New Customer"}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="text-slate-400 hover:text-slate-600 text-xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                save.mutate(form);
-              }}
-              className="px-6 py-5"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {FIELDS.map((f) => (
-                  <div
-                    key={f.key}
-                    className={
-                      f.type === "textarea" ? "sm:col-span-2" : undefined
-                    }
-                  >
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      {f.label}
-                    </label>
-                    {f.type === "textarea" ? (
-                      <textarea
-                        value={form[f.key]}
-                        onChange={(e) =>
-                          setForm({ ...form, [f.key]: e.target.value })
-                        }
-                        rows={3}
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    ) : (
-                      <input
-                        type={f.type ?? "text"}
-                        value={form[f.key]}
-                        onChange={(e) =>
-                          setForm({ ...form, [f.key]: e.target.value })
-                        }
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {save.isError && (
-                <p className="text-red-600 text-sm mt-4">
-                  {(save.error as Error)?.message ?? "Failed to save customer."}
-                </p>
-              )}
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={save.isPending}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-60"
-                >
-                  {save.isPending ? "Saving…" : "Save"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {showAdd && <CustomerForm customer={null} onClose={() => setShowAdd(false)} />}
+      {editing && <CustomerForm customer={editing} onClose={() => setEditing(null)} />}
+      {showImport && (
+        <ImportCsvModal
+          title="Import customers from CSV"
+          fields={[
+            { key: "name", aliases: ["name"], required: true },
+            { key: "company", aliases: ["company", "company_name"] },
+            { key: "email", aliases: ["email", "contact_email"] },
+            { key: "phone", aliases: ["phone", "contact_phone"] },
+            { key: "address", aliases: ["address", "address1"] },
+            { key: "city", aliases: ["city"] },
+            { key: "state", aliases: ["state"] },
+            { key: "zip", aliases: ["zip", "zip_code", "zipcode"] },
+            { key: "facility_type", aliases: ["facility_type", "facility"] },
+            { key: "business_hours", aliases: ["business_hours", "hours"] },
+            { key: "special_instructions", aliases: ["special_instructions", "instructions"] },
+          ]}
+          exampleHeader="name, company, email, phone, address, city, state, zip, facility_type, business_hours, special_instructions"
+          toPayload={(r) => ({
+            name: r.name,
+            company_name: r.company || null,
+            contact_email: r.email || null,
+            contact_phone: r.phone || null,
+            address1: r.address || null,
+            city: r.city || null,
+            state: r.state || null,
+            zip_code: r.zip || null,
+            facility_type: r.facility_type || null,
+            business_hours: r.business_hours || null,
+            special_instructions: r.special_instructions || null,
+          })}
+          onImport={async (rows) => {
+            const { error: e } = await supabase.from("customers").insert(rows as never);
+            if (e) throw e;
+            qc.invalidateQueries({ queryKey: ["customers"] });
+          }}
+          onClose={() => setShowImport(false)}
+        />
       )}
     </div>
   );

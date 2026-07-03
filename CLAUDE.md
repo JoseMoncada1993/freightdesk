@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-FreightDesk is a logistics workflow web app for a freight desk / data analyst: it
-tracks loads, carriers, lanes, customers, documents, and tasks, and surfaces
-operational analytics. It is a static React SPA that talks directly to Supabase
+FreightDesk is a TMS/WMS web app for a freight brokerage / 3PL: it tracks loads,
+carriers, lanes, customers, drop trailers (yard board), warehouse inventory,
+documents, and tasks, and surfaces operational analytics. It is a static React SPA that talks directly to Supabase
 (Postgres + Auth + Storage) and deploys to Cloudflare Pages. There is no custom
 backend server — access control lives in Postgres Row Level Security.
 
@@ -49,7 +49,8 @@ tables (or the `add_load()` RPC).
 **Routing/layout.** `src/main.tsx` mounts the Router and the React Query provider.
 `src/App.tsx` defines routes; all pages render inside `components/Layout.tsx`
 (persistent `Sidebar`). Each module has one page in `src/pages/`
-(Dashboard, Shipments, Customers, Carriers, Documents, Tasks). `src/features/<module>/`
+(Dashboard, Shipments, Billing, Trailers, Inventory, Customers, Carriers, Documents, Tasks).
+`src/features/<module>/`
 is where domain-specific components/hooks/API calls should be co-located as modules grow.
 
 **Path alias.** `@/` → `src/` (configured in both `vite.config.ts` and `tsconfig.json`).
@@ -61,6 +62,17 @@ Postgres schema is in `supabase/migrations/`:
   view, and the `add_load()` RPC (the original FreightDesk core).
 - `0002_customers_documents_tasks.sql` — adds `customers`, `documents`, `tasks`,
   and a nullable `loads.customer_id` link.
+- `0003_yard_trailers.sql` — drop trailer / yard board: `yard_trailers` +
+  `yard_trailers_enriched` view.
+- `0004_warehouse_inventory.sql` — WMS core: `warehouses`, `inventory_items`,
+  `inventory_levels`, `inventory_movements`, the `record_inventory_movement()`
+  RPC (atomic ledger write + level upsert), enriched inventory views, the
+  private `documents` storage bucket, and `security_invoker = on` for all
+  enriched views so RLS applies through them.
+
+Inventory writes must go through `record_inventory_movement()` so the movement
+ledger and `inventory_levels` stay consistent — never update `qty_on_hand`
+directly.
 
 Keys use `bigint generated always as identity`. `loads` is the hub; `documents`
 and `tasks` reference it via `load_id`. All tables have RLS enabled with a starter

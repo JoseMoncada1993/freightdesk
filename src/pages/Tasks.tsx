@@ -1,345 +1,291 @@
 import { useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
+import ImportCsvModal from "@/components/ImportCsvModal";
 import { supabase } from "@/lib/supabase";
+import Badge from "@/components/ui/Badge";
+import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
+import { useTasks } from "@/hooks/useTables";
+import { useLoads } from "@/hooks/useLoads";
+import { useAddTask, useUpdateTask } from "@/hooks/useMutations";
+import { exportCsv, exportButtonProps } from "@/lib/csv";
+import { TASK_STATUSES } from "@/lib/types";
+import type { TaskRecord, TaskStatus } from "@/lib/types";
 
-type TaskRow = {
-  id: number;
-  title: string;
-  assignee: string | null;
-  status: string | null;
-  due_date: string | null;
-  notes: string | null;
-  archived: boolean;
-  created_at: string;
+const NEXT_STATUS: Record<string, TaskStatus> = {
+  open: "in_progress",
+  in_progress: "done",
+  done: "open",
 };
 
-type TaskForm = {
-  title: string;
-  assignee: string;
-  status: string;
-  due_date: string;
-  notes: string;
-};
+const overdue = (t: TaskRecord) =>
+  t.due_date != null && t.status !== "done" && new Date(t.due_date) < new Date(new Date().toDateString());
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Blocked", "Done"];
+const ageDays = (t: TaskRecord) =>
+  Math.max(0, Math.floor((Date.now() - new Date(t.created_at).getTime()) / 864e5));
 
-const EMPTY_FORM: TaskForm = {
-  title: "",
-  assignee: "",
-  status: "Open",
-  due_date: "",
-  notes: "",
-};
+function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => void }) {
+  const add = useAddTask();
+  const update = useUpdateTask();
+  const loads = useLoads();
+  const editing = task != null;
 
-function ageInDays(createdAt: string): number {
-  const created = new Date(createdAt).getTime();
-  if (Number.isNaN(created)) return 0;
-  const diff = Date.now() - created;
-  return Math.max(0, Math.floor(diff / 86400000));
-}
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [assignee, setAssignee] = useState(task?.assignee ?? "");
+  const [dueDate, setDueDate] = useState(task?.due_date ?? "");
+  const [loadId, setLoadId] = useState(task?.load_id ? String(task.load_id) : "");
+  const [status, setStatus] = useState<TaskStatus>((task?.status as TaskStatus) ?? "open");
+  const [notes, setNotes] = useState(task?.notes ?? "");
 
-function norm(s: string): string {
-  return s.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+  const pending = add.isPending || update.isPending;
+  const canSubmit = title.trim() !== "" && !pending;
+
+  const handleSubmit = () => {
+    const payload = {
+      title: title.trim(),
+      assignee: assignee.trim() || null,
+      due_date: dueDate || null,
+      load_id: loadId ? Number(loadId) : null,
+      status,
+      notes: notes.trim() || null,
+    };
+    if (editing) {
+      update.mutate({ id: task.id, ...payload }, { onSuccess: onClose });
+    } else {
+      add.mutate(payload, { onSuccess: onClose });
+    }
+  };
+
+  return (
+    <Modal
+      title={editing ? "Edit task" : "Add task"}
+      onClose={onClose}
+      footer={
+        <ModalActions
+          onCancel={onClose}
+          onSubmit={handleSubmit}
+          submitLabel={editing ? "Save changes" : "Add task"}
+          pending={pending}
+          disabled={!canSubmit}
+        />
+      }
+    >
+      <Field label="Title *">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
+      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Assignee">
+          <input value={assignee} onChange={(e) => setAssignee(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="Due / scheduled date">
+          <input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" className={inputCls} />
+        </Field>
+        <Field label="Linked load">
+          <select value={loadId} onChange={(e) => setLoadId(e.target.value)} className={inputCls}>
+            <option value="">—</option>
+            {(loads.data ?? []).map((l) => (
+              <option key={l.id ?? undefined} value={l.id ?? ""}>{l.ref}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Status">
+          <select value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)} className={inputCls}>
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>{s.replace("_", " ")}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      <Field label="Notes">
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} />
+      </Field>
+      <ErrorText error={add.error ?? update.error} />
+    </Modal>
+  );
 }
 
 export default function Tasks() {
-  const queryClient = useQueryClient();
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<TaskForm>(EMPTY_FORM);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("age");
+  const { data, isLoading, error } = useTasks();
+  const update = useUpdateTask();
+  const qc = useQueryClient();
+  const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [editing, setEditing] = useState<TaskRecord | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: async (): Promise<TaskRow[]> => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("id, title, assignee, status, due_date, notes, archived, created_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as TaskRow[];
-    },
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: async (payload: { id: number | null; values: TaskForm }) => {
-      const record = {
-        title: payload.values.title,
-        assignee: payload.values.assignee || null,
-        status: payload.values.status,
-        due_date: payload.values.due_date || null,
-        notes: payload.values.notes || null,
-      };
-      if (payload.id == null) {
-        const { error } = await supabase.from("tasks").insert(record);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("tasks").update(record).eq("id", payload.id);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      closeModal();
-    },
-  });
-
-  const archiveMutation = useMutation({
-    mutationFn: async (payload: { id: number; archived: boolean }) => {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ archived: payload.archived })
-        .eq("id", payload.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
-  });
-
-  function openAdd() {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setShowModal(true);
-  }
-
-  function openEdit(row: TaskRow) {
-    setEditingId(row.id);
-    setForm({
-      title: row.title ?? "",
-      assignee: row.assignee ?? "",
-      status: row.status ?? "Open",
-      due_date: row.due_date ?? "",
-      notes: row.notes ?? "",
-    });
-    setShowModal(true);
-  }
-
-  function closeModal() {
-    setShowModal(false);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-  }
-
-  function setField(key: keyof TaskForm, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    saveMutation.mutate({ id: editingId, values: form });
-  }
+  const assignees = useMemo(
+    () => Array.from(new Set((data ?? []).map((t) => t.assignee).filter(Boolean))).sort() as string[],
+    [data],
+  );
 
   const rows = useMemo(() => {
-    let list = (data ?? []).filter((t) => t.archived === showArchived);
-    if (statusFilter !== "all") {
-      list = list.filter((t) => norm(t.status ?? "") === norm(statusFilter));
+    let out = (data ?? []).filter((t) => (showArchived ? t.archived : !t.archived));
+    if (statusFilter === "scheduled") {
+      out = out.filter((t) => t.due_date != null && new Date(t.due_date) > new Date() && t.status !== "done");
+    } else if (statusFilter !== "all") {
+      out = out.filter((t) => t.status === statusFilter);
     }
-    if (search.trim() !== "") {
-      const q = search.toLowerCase();
-      list = list.filter((t) =>
-        (t.title ?? "").toLowerCase().includes(q) ||
-        (t.assignee ?? "").toLowerCase().includes(q) ||
-        (t.notes ?? "").toLowerCase().includes(q)
+    if (assigneeFilter !== "all") out = out.filter((t) => t.assignee === assigneeFilter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((t) =>
+        [t.title, t.assignee, t.notes].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
       );
     }
-    const sorted = [...list];
-    if (sortBy === "age") {
-      sorted.sort((a, b) => ageInDays(b.created_at) - ageInDays(a.created_at));
-    } else if (sortBy === "due") {
-      sorted.sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
-    } else if (sortBy === "title") {
-      sorted.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? ""));
-    }
-    return sorted;
-  }, [data, statusFilter, sortBy, showArchived, search]);
+    return out;
+  }, [data, showArchived, search, statusFilter, assigneeFilter]);
 
-  const controlClass =
-    "rounded border border-slate-300 px-2 py-1 text-sm focus:border-slate-500 focus:outline-none";
-  const inputClass =
-    "w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
+  const doExport = () =>
+    exportCsv(
+      rows.map((t) => ({
+        title: t.title, assignee: t.assignee, status: t.status, due_date: t.due_date,
+        age_days: ageDays(t), load_id: t.load_id, notes: t.notes, created_at: t.created_at,
+      })),
+      "tasks",
+    );
 
   return (
     <div>
       <PageHeader
         title="Tasks"
-        subtitle="Workflow tasks and assignments"
+        subtitle="Click a status chip to advance it. Click headers to sort."
         action={
-          <button
-            type="button"
-            onClick={openAdd}
-            className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-          >
-            New Task
-          </button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button onClick={doExport} {...exportButtonProps(rows.length)}>Export CSV</button>
+            <button
+              onClick={() => setShowImport(true)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Import CSV
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              + Add task
+            </button>
+          </div>
         }
       />
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="text-sm text-slate-600">
-          Status:{" "}
-          <select
-            className={controlClass}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All</option>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm text-slate-600">
-          Sort by:{" "}
-          <select
-            className={controlClass}
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            <option value="age">Age (oldest first)</option>
-            <option value="due">Due date</option>
-            <option value="title">Title</option>
-          </select>
-        </label>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <input
-          type="text"
-          placeholder="Search tasks…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="rounded border border-slate-300 px-2 py-1 text-sm focus:border-slate-500 focus:outline-none"
+          placeholder="Search title, assignee, notes…"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          Show archived
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">All statuses</option>
+          {TASK_STATUSES.map((s) => (
+            <option key={s} value={s}>{s.replace("_", " ")}</option>
+          ))}
+          <option value="scheduled">Scheduled (future due date)</option>
+        </select>
+        <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">All assignees</option>
+          {assignees.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-sm text-slate-500">
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="rounded border-slate-300" />
+          Archived
         </label>
       </div>
-
-      <DataTable<TaskRow>
+      <DataTable<TaskRecord>
         rows={rows}
         isLoading={isLoading}
         error={error}
         rowKey={(r) => r.id}
-        empty={showArchived ? "No archived tasks." : "No tasks yet. Use the New Task button to add one."}
+        empty={showArchived ? "No archived tasks." : "No tasks match this filter."}
         columns={[
-          { header: "Age", cell: (r) => ageInDays(r.created_at) + "d" },
-          { header: "Title", cell: (r) => r.title },
-          { header: "Assignee", cell: (r) => r.assignee ?? "â" },
-          { header: "Status", cell: (r) => r.status ?? "â" },
-          { header: "Due Date", cell: (r) => r.due_date ?? "â" },
-          { header: "Notes", cell: (r) => r.notes ?? "â" },
+          { header: "Title", cell: (r) => <span className="font-medium">{r.title}</span>, sort: (r) => r.title },
+          { header: "Assignee", cell: (r) => r.assignee ?? "—", sort: (r) => r.assignee },
+          {
+            header: "Status",
+            cell: (r) => (
+              <button
+                onClick={() => update.mutate({ id: r.id, status: NEXT_STATUS[r.status] ?? "open" })}
+                title="Click to advance status"
+              >
+                <Badge value={r.status} />
+              </button>
+            ),
+            sort: (r) => r.status,
+          },
+          {
+            header: "Due",
+            cell: (r) =>
+              r.due_date ? (
+                <span className={overdue(r) ? "text-red-600 font-medium" : ""}>
+                  {new Date(r.due_date + "T00:00:00").toLocaleDateString()}
+                </span>
+              ) : (
+                "—"
+              ),
+            sort: (r) => r.due_date,
+          },
+          {
+            header: "Age",
+            cell: (r) => {
+              const d = ageDays(r);
+              return <span className={d > 7 && r.status !== "done" ? "text-amber-600 font-medium" : ""}>{d}d</span>;
+            },
+            sort: (r) => ageDays(r),
+          },
+          { header: "Load", cell: (r) => (r.load_id == null ? "—" : `#${r.load_id}`), sort: (r) => r.load_id },
+          { header: "Notes", cell: (r) => r.notes ?? "—" },
           {
             header: "",
             cell: (r) => (
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEdit(r)}
-                  className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                >
+              <div className="flex gap-2 justify-end whitespace-nowrap">
+                <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
                   Edit
                 </button>
                 <button
-                  type="button"
-                  onClick={() => archiveMutation.mutate({ id: r.id, archived: !r.archived })}
-                  className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                  onClick={() => update.mutate({ id: r.id, archived: !r.archived })}
+                  className="text-slate-500 hover:underline text-xs font-medium"
                 >
-                  {r.archived ? "Unarchive" : "Archive"}
+                  {r.archived ? "Restore" : "Archive"}
                 </button>
               </div>
             ),
           },
         ]}
       />
-
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">
-              {editingId == null ? "New Task" : "Edit Task"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Title</label>
-                <input
-                  className={inputClass}
-                  value={form.title}
-                  onChange={(e) => setField("title", e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Assignee</label>
-                <input
-                  className={inputClass}
-                  value={form.assignee}
-                  onChange={(e) => setField("assignee", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Status</label>
-                <select
-                  className={inputClass}
-                  value={form.status}
-                  onChange={(e) => setField("status", e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Due Date</label>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={form.due_date}
-                  onChange={(e) => setField("due_date", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Notes</label>
-                <textarea
-                  className={inputClass}
-                  rows={3}
-                  value={form.notes}
-                  onChange={(e) => setField("notes", e.target.value)}
-                />
-              </div>
-              {saveMutation.isError && (
-                <p className="text-sm text-red-600">Could not save. Please try again.</p>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saveMutation.isPending}
-                  className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-                >
-                  {saveMutation.isPending ? "Savingâ¦" : "Save"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {showAdd && <TaskForm task={null} onClose={() => setShowAdd(false)} />}
+      {editing && <TaskForm task={editing} onClose={() => setEditing(null)} />}
+      {showImport && (
+        <ImportCsvModal
+          title="Import tasks from CSV"
+          fields={[
+            { key: "title", aliases: ["title", "task"], required: true },
+            { key: "assignee", aliases: ["assignee", "owner"] },
+            { key: "status", aliases: ["status"] },
+            { key: "due_date", aliases: ["due_date", "due"] },
+            { key: "notes", aliases: ["notes"] },
+          ]}
+          exampleHeader="title, assignee, status, due_date, notes"
+          toPayload={(r) => ({
+            title: r.title,
+            assignee: r.assignee || null,
+            status: TASK_STATUSES.includes(r.status?.toLowerCase() as never) ? r.status.toLowerCase() : "open",
+            due_date: r.due_date && !Number.isNaN(new Date(r.due_date).getTime())
+              ? new Date(r.due_date).toISOString().slice(0, 10)
+              : null,
+            notes: r.notes || null,
+          })}
+          onImport={async (importRows) => {
+            const { error: e } = await supabase.from("tasks").insert(importRows as never);
+            if (e) throw e;
+            qc.invalidateQueries({ queryKey: ["tasks"] });
+          }}
+          onClose={() => setShowImport(false)}
+        />
       )}
     </div>
   );

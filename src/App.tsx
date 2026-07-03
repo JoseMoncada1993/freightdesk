@@ -4,11 +4,13 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Shipments from "./pages/Shipments";
+import Billing from "./pages/Billing";
+import Trailers from "./pages/Trailers";
+import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
 import Carriers from "./pages/Carriers";
 import Documents from "./pages/Documents";
 import Tasks from "./pages/Tasks";
-import Yard from "./pages/Yard";
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -28,11 +30,13 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="shipments" element={<Shipments />} />
+        <Route path="billing" element={<Billing />} />
+        <Route path="trailers" element={<Trailers />} />
+        <Route path="inventory" element={<Inventory />} />
         <Route path="customers" element={<Customers />} />
         <Route path="carriers" element={<Carriers />} />
         <Route path="documents" element={<Documents />} />
         <Route path="tasks" element={<Tasks />} />
-          <Route path="yard" element={<Yard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
