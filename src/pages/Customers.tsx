@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import PageHeader from "@/components/PageHeader";
+import { useAuth } from "@/lib/AuthContext";
 import DataTable from "@/components/DataTable";
 import ImportCsvModal from "@/components/ImportCsvModal";
 import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
@@ -283,10 +284,35 @@ function CustomerForm({ customer, onClose }: { customer: Customer | null; onClos
 export default function Customers() {
   const { data, isLoading, error } = useCustomers();
   const update = useUpdateCustomer();
+  const { can } = useAuth();
+  const canWrite = can("customers");
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [search, setSearch] = useState("");
+  const [stateFilter, setStateFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
+
+  const states = useMemo(
+    () => Array.from(new Set((data ?? []).map((c) => c.state).filter(Boolean))).sort() as string[],
+    [data],
+  );
+
+  const rows = useMemo(() => {
+    let out = data ?? [];
+    if (stateFilter !== "all") out = out.filter((c) => c.state === stateFilter);
+    if (activeFilter !== "all") out = out.filter((c) => (activeFilter === "active" ? c.active : !c.active));
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((c) =>
+        [c.name, c.company_name, c.contact_email, c.contact_phone, c.city, c.state, c.facility_type]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q)),
+      );
+    }
+    return out;
+  }, [data, search, stateFilter, activeFilter]);
 
   return (
     <div>
@@ -298,7 +324,7 @@ export default function Customers() {
             <button
               onClick={() =>
                 exportCsv(
-                  (data ?? []).map((c) => ({
+                  rows.map((c) => ({
                     name: c.name, company: c.company_name, email: c.contact_email, phone: c.contact_phone,
                     address: c.address1, city: c.city, state: c.state, zip: c.zip_code,
                     facility_type: c.facility_type, business_hours: c.business_hours,
@@ -307,56 +333,94 @@ export default function Customers() {
                   "customers",
                 )
               }
-              {...exportButtonProps(data?.length ?? 0)}
+              {...exportButtonProps(rows.length)}
             >
               Export CSV
             </button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Import CSV
-            </button>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + Add customer
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowImport(true)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Import CSV
+              </button>
+            )}
+            {canWrite && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                + Add customer
+              </button>
+            )}
           </div>
         }
       />
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, company, email, city…"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">All states</option>
+          {states.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">Active + inactive</option>
+          <option value="active">Active only</option>
+          <option value="inactive">Inactive only</option>
+        </select>
+        <span className="text-xs text-slate-400">{rows.length} customers</span>
+      </div>
       <DataTable<Customer>
-        rows={data}
+        rows={rows}
         isLoading={isLoading}
         error={error}
         rowKey={(r) => r.id}
+        empty="No customers match this filter."
         columns={[
-          { header: "Name", cell: (r) => <span className="font-medium">{r.name ?? "—"}</span> },
-          { header: "Company", cell: (r) => r.company_name ?? "—" },
-          { header: "Email", cell: (r) => r.contact_email ?? "—" },
+          { header: "Name", cell: (r) => <span className="font-medium">{r.name ?? "—"}</span>, sort: (r) => r.name },
+          { header: "Company", cell: (r) => r.company_name ?? "—", sort: (r) => r.company_name },
+          { header: "Email", cell: (r) => r.contact_email ?? "—", sort: (r) => r.contact_email },
           { header: "Phone", cell: (r) => r.contact_phone ?? "—" },
-          { header: "Location", cell: (r) => [r.city, r.state].filter(Boolean).join(", ") || "—" },
-          { header: "Facility", cell: (r) => r.facility_type ?? "—" },
+          {
+            header: "Location",
+            cell: (r) => [r.city, r.state].filter(Boolean).join(", ") || "—",
+            sort: (r) => [r.state, r.city].filter(Boolean).join(", "),
+          },
+          { header: "Facility", cell: (r) => r.facility_type ?? "—", sort: (r) => r.facility_type },
           {
             header: "Active",
-            cell: (r) => (
-              <button
-                onClick={() => update.mutate({ id: r.id, active: !r.active })}
-                className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
-                title="Click to toggle"
-              >
-                {r.active ? "Active" : "Inactive"}
-              </button>
-            ),
+            cell: (r) =>
+              canWrite ? (
+                <button
+                  onClick={() => update.mutate({ id: r.id, active: !r.active })}
+                  className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
+                  title="Click to toggle"
+                >
+                  {r.active ? "Active" : "Inactive"}
+                </button>
+              ) : (
+                <span
+                  className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
+                >
+                  {r.active ? "Active" : "Inactive"}
+                </span>
+              ),
+            sort: (r) => (r.active ? 1 : 0),
           },
           {
             header: "",
-            cell: (r) => (
-              <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
-                Edit
-              </button>
-            ),
+            cell: (r) =>
+              canWrite ? (
+                <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
+                  Edit
+                </button>
+              ) : null,
           },
         ]}
       />

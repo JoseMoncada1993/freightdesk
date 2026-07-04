@@ -9,15 +9,49 @@ import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui
 import { useTasks } from "@/hooks/useTables";
 import { useLoads } from "@/hooks/useLoads";
 import { useAddTask, useUpdateTask } from "@/hooks/useMutations";
+import { useAuth } from "@/lib/AuthContext";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
-import { TASK_STATUSES } from "@/lib/types";
-import type { TaskRecord, TaskStatus } from "@/lib/types";
+import { TASK_STATUSES, TASK_RECURRENCES, RECURRENCE_LABELS } from "@/lib/types";
+import type { TaskRecord, TaskStatus, TaskRecurrence } from "@/lib/types";
 
 const NEXT_STATUS: Record<string, TaskStatus> = {
   open: "in_progress",
   in_progress: "done",
   done: "open",
 };
+
+const fmtLocalDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Next due date for a recurring task, stepping from its current due date (or today). */
+function nextDueDate(current: string | null, recurrence: string): string {
+  const d = current ? new Date(current + "T00:00:00") : new Date();
+  if (recurrence === "daily") d.setDate(d.getDate() + 1);
+  else if (recurrence === "weekly") d.setDate(d.getDate() + 7);
+  else if (recurrence === "biweekly") d.setDate(d.getDate() + 14);
+  else if (recurrence === "monthly") d.setMonth(d.getMonth() + 1);
+  return fmtLocalDate(d);
+}
+
+/** Payload for the next occurrence spawned when a recurring task is completed. */
+function nextOccurrence(t: {
+  title: string;
+  assignee: string | null;
+  load_id: number | null;
+  notes: string | null;
+  recurrence: string;
+  due_date: string | null;
+}) {
+  return {
+    title: t.title,
+    assignee: t.assignee,
+    load_id: t.load_id,
+    notes: t.notes,
+    recurrence: t.recurrence,
+    status: "open" as TaskStatus,
+    due_date: nextDueDate(t.due_date, t.recurrence),
+  };
+}
 
 const overdue = (t: TaskRecord) =>
   t.due_date != null && t.status !== "done" && new Date(t.due_date) < new Date(new Date().toDateString());
@@ -36,6 +70,9 @@ function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => v
   const [dueDate, setDueDate] = useState(task?.due_date ?? "");
   const [loadId, setLoadId] = useState(task?.load_id ? String(task.load_id) : "");
   const [status, setStatus] = useState<TaskStatus>((task?.status as TaskStatus) ?? "open");
+  const [recurrence, setRecurrence] = useState<TaskRecurrence>(
+    (task?.recurrence as TaskRecurrence) ?? "none",
+  );
   const [notes, setNotes] = useState(task?.notes ?? "");
 
   const pending = add.isPending || update.isPending;
@@ -48,10 +85,21 @@ function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => v
       due_date: dueDate || null,
       load_id: loadId ? Number(loadId) : null,
       status,
+      recurrence,
       notes: notes.trim() || null,
     };
     if (editing) {
-      update.mutate({ id: task.id, ...payload }, { onSuccess: onClose });
+      const becameDone = task.status !== "done" && payload.status === "done";
+      update.mutate(
+        { id: task.id, ...payload },
+        {
+          onSuccess: () => {
+            // Completing a recurring task from the form also schedules the next one.
+            if (becameDone && payload.recurrence !== "none") add.mutate(nextOccurrence(payload));
+            onClose();
+          },
+        },
+      );
     } else {
       add.mutate(payload, { onSuccess: onClose });
     }
@@ -96,7 +144,24 @@ function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => v
             ))}
           </select>
         </Field>
+        <Field label="Repeat">
+          <select
+            value={recurrence}
+            onChange={(e) => setRecurrence(e.target.value as TaskRecurrence)}
+            className={inputCls}
+          >
+            {TASK_RECURRENCES.map((r) => (
+              <option key={r} value={r}>{RECURRENCE_LABELS[r]}</option>
+            ))}
+          </select>
+        </Field>
       </div>
+      {recurrence !== "none" && (
+        <p className="text-xs text-slate-400">
+          When this task is marked done, the next one is created automatically
+          ({RECURRENCE_LABELS[recurrence].toLowerCase()}) from its due date.
+        </p>
+      )}
       <Field label="Notes">
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} />
       </Field>
@@ -108,7 +173,23 @@ function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => v
 export default function Tasks() {
   const { data, isLoading, error } = useTasks();
   const update = useUpdateTask();
+  const add = useAddTask();
+  const { can } = useAuth();
+  const canWrite = can("tasks");
   const qc = useQueryClient();
+
+  /** Advance the status chip; completing a recurring task spawns the next occurrence. */
+  const advance = (r: TaskRecord) => {
+    const next = NEXT_STATUS[r.status] ?? "open";
+    update.mutate(
+      { id: r.id, status: next },
+      {
+        onSuccess: () => {
+          if (next === "done" && r.recurrence !== "none") add.mutate(nextOccurrence(r));
+        },
+      },
+    );
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<TaskRecord | null>(null);
@@ -156,18 +237,22 @@ export default function Tasks() {
         action={
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <button onClick={doExport} {...exportButtonProps(rows.length)}>Export CSV</button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Import CSV
-            </button>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + Add task
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowImport(true)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Import CSV
+              </button>
+            )}
+            {canWrite && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                + Add task
+              </button>
+            )}
           </div>
         }
       />
@@ -207,15 +292,27 @@ export default function Tasks() {
           { header: "Assignee", cell: (r) => r.assignee ?? "—", sort: (r) => r.assignee },
           {
             header: "Status",
-            cell: (r) => (
-              <button
-                onClick={() => update.mutate({ id: r.id, status: NEXT_STATUS[r.status] ?? "open" })}
-                title="Click to advance status"
-              >
+            cell: (r) =>
+              canWrite ? (
+                <button onClick={() => advance(r)} title="Click to advance status">
+                  <Badge value={r.status} />
+                </button>
+              ) : (
                 <Badge value={r.status} />
-              </button>
-            ),
+              ),
             sort: (r) => r.status,
+          },
+          {
+            header: "Repeats",
+            cell: (r) =>
+              r.recurrence && r.recurrence !== "none" ? (
+                <span className="inline-block rounded-full bg-violet-100 text-violet-700 px-2.5 py-0.5 text-xs font-medium">
+                  {RECURRENCE_LABELS[r.recurrence as TaskRecurrence] ?? r.recurrence}
+                </span>
+              ) : (
+                "—"
+              ),
+            sort: (r) => r.recurrence,
           },
           {
             header: "Due",
@@ -241,19 +338,20 @@ export default function Tasks() {
           { header: "Notes", cell: (r) => r.notes ?? "—" },
           {
             header: "",
-            cell: (r) => (
-              <div className="flex gap-2 justify-end whitespace-nowrap">
-                <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
-                  Edit
-                </button>
-                <button
-                  onClick={() => update.mutate({ id: r.id, archived: !r.archived })}
-                  className="text-slate-500 hover:underline text-xs font-medium"
-                >
-                  {r.archived ? "Restore" : "Archive"}
-                </button>
-              </div>
-            ),
+            cell: (r) =>
+              canWrite ? (
+                <div className="flex gap-2 justify-end whitespace-nowrap">
+                  <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => update.mutate({ id: r.id, archived: !r.archived })}
+                    className="text-slate-500 hover:underline text-xs font-medium"
+                  >
+                    {r.archived ? "Restore" : "Archive"}
+                  </button>
+                </div>
+              ) : null,
           },
         ]}
       />
@@ -267,9 +365,10 @@ export default function Tasks() {
             { key: "assignee", aliases: ["assignee", "owner"] },
             { key: "status", aliases: ["status"] },
             { key: "due_date", aliases: ["due_date", "due"] },
+            { key: "recurrence", aliases: ["recurrence", "repeat", "repeats"] },
             { key: "notes", aliases: ["notes"] },
           ]}
-          exampleHeader="title, assignee, status, due_date, notes"
+          exampleHeader="title, assignee, status, due_date, recurrence, notes"
           toPayload={(r) => ({
             title: r.title,
             assignee: r.assignee || null,
@@ -277,6 +376,9 @@ export default function Tasks() {
             due_date: r.due_date && !Number.isNaN(new Date(r.due_date).getTime())
               ? new Date(r.due_date).toISOString().slice(0, 10)
               : null,
+            recurrence: TASK_RECURRENCES.includes(r.recurrence?.toLowerCase() as TaskRecurrence)
+              ? r.recurrence.toLowerCase()
+              : "none",
             notes: r.notes || null,
           })}
           onImport={async (importRows) => {

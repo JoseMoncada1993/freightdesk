@@ -17,6 +17,7 @@ import {
   useWarehouses,
 } from "@/hooks/useInventory";
 import { useCustomers } from "@/hooks/useTables";
+import { useAuth } from "@/lib/AuthContext";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
 import type { InventoryLevelEnriched, InventoryMovementEnriched, MovementType } from "@/lib/types";
 
@@ -309,6 +310,8 @@ export default function Inventory() {
   const levels = useInventoryLevels();
   const movements = useInventoryMovements();
   const warehouses = useWarehouses();
+  const { can } = useAuth();
+  const canWrite = can("inventory");
   const qc = useQueryClient();
   const [showAddItem, setShowAddItem] = useState(false);
   const [showAddWarehouse, setShowAddWarehouse] = useState(false);
@@ -356,30 +359,34 @@ export default function Inventory() {
         action={
           <div className="flex gap-2 flex-wrap justify-end">
             <button onClick={doExport} {...exportButtonProps(rows.length)}>Export CSV</button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Import CSV
-            </button>
-            <button
-              onClick={() => setShowAddWarehouse(true)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              + Add warehouse
-            </button>
-            <button
-              onClick={() => setShowAddItem(true)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              + Add item
-            </button>
-            <button
-              onClick={() => setShowMovement(true)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + Record movement
-            </button>
+            {canWrite && (
+              <>
+                <button
+                  onClick={() => setShowImport(true)}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Import CSV
+                </button>
+                <button
+                  onClick={() => setShowAddWarehouse(true)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  + Add warehouse
+                </button>
+                <button
+                  onClick={() => setShowAddItem(true)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  + Add item
+                </button>
+                <button
+                  onClick={() => setShowMovement(true)}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  + Record movement
+                </button>
+              </>
+            )}
           </div>
         }
       />

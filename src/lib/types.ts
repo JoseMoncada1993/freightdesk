@@ -65,6 +65,18 @@ export type TaskStatus = "open" | "in_progress" | "done";
 
 export const TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "done"];
 
+export type TaskRecurrence = "none" | "daily" | "weekly" | "biweekly" | "monthly";
+
+export const TASK_RECURRENCES: TaskRecurrence[] = ["none", "daily", "weekly", "biweekly", "monthly"];
+
+export const RECURRENCE_LABELS: Record<TaskRecurrence, string> = {
+  none: "Does not repeat",
+  daily: "Daily",
+  weekly: "Weekly",
+  biweekly: "Every 2 weeks",
+  monthly: "Monthly",
+};
+
 export const DOC_TYPES = [
   "BOL",
   "POD",

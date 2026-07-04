@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
 import StatCard from "@/components/ui/StatCard";
 import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
+import { useAuth } from "@/lib/AuthContext";
 import { useLoads } from "@/hooks/useLoads";
 import { useUpdateLoad } from "@/hooks/useMutations";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
@@ -100,6 +101,8 @@ function InvoiceModal({ load, onClose }: { load: LoadEnriched; onClose: () => vo
 export default function Billing() {
   const { data, isLoading, error } = useLoads();
   const update = useUpdateLoad();
+  const { can } = useAuth();
+  const canWrite = can("billing");
   const [invoicing, setInvoicing] = useState<LoadEnriched | null>(null);
   const [filter, setFilter] = useState<"all" | ArStatus>("all");
 
@@ -237,6 +240,7 @@ export default function Billing() {
           {
             header: "",
             cell: (r) => {
+              if (!canWrite) return null;
               const st = arStatus(r);
               return (
                 <div className="flex gap-2 justify-end whitespace-nowrap">

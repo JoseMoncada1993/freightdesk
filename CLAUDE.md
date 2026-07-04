@@ -70,14 +70,27 @@ Postgres schema is in `supabase/migrations/`:
   private `documents` storage bucket, and `security_invoker = on` for all
   enriched views so RLS applies through them.
 
+- `0013_recurring_tasks_broker_mode.sql` — `tasks.recurrence`
+  (none/daily/weekly/biweekly/monthly; the app spawns the next occurrence when
+  a recurring task is completed) and adds `broker` to carrier modes.
+- `0014_rbac_activation.sql` — role-based access is ACTIVE. Roles live on
+  `profiles.role` (admin | dispatcher | warehouse | viewer); `public.my_role()`
+  drives role-scoped RLS on every table and storage bucket. New auth users
+  default to `viewer`; the admin-only `/team` page assigns roles.
+  `src/lib/permissions.ts` mirrors the RLS matrix for UI gating (via
+  `useAuth().can(module)`) — keep both in sync when changing permissions.
+
 Inventory writes must go through `record_inventory_movement()` so the movement
 ledger and `inventory_levels` stay consistent — never update `qty_on_hand`
 directly.
 
 Keys use `bigint generated always as identity`. `loads` is the hub; `documents`
-and `tasks` reference it via `load_id`. All tables have RLS enabled with a starter
-policy granting authenticated users full access — tighten these before production.
-Apply migrations via the Supabase dashboard SQL editor or the Supabase CLI/MCP.
+and `tasks` reference it via `load_id`. All tables have RLS enabled with
+role-scoped policies (see 0014): everyone authenticated can read; writes are
+admin+dispatcher for loads/lanes/carriers/customers (+warehouse for
+tasks/documents/yard_trailers; admin+warehouse for inventory); hard deletes are
+admin-only. Apply migrations via the Supabase dashboard SQL editor or the
+Supabase CLI/MCP.
 
 ## Deployment
 

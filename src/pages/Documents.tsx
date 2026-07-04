@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
 import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/AuthContext";
 import { useDocuments } from "@/hooks/useTables";
 import { useLoads } from "@/hooks/useLoads";
 import { useAddDocument } from "@/hooks/useMutations";
@@ -86,6 +87,8 @@ function UploadForm({ onClose }: { onClose: () => void }) {
 
 export default function Documents() {
   const { data, isLoading, error } = useDocuments();
+  const { can } = useAuth();
+  const canWrite = can("documents");
   const [showUpload, setShowUpload] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -109,12 +112,14 @@ export default function Documents() {
         title="Documents"
         subtitle="BOLs, PODs, invoices and carrier paperwork (Supabase Storage)"
         action={
-          <button
-            onClick={() => setShowUpload(true)}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            + Upload document
-          </button>
+          canWrite ? (
+            <button
+              onClick={() => setShowUpload(true)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              + Upload document
+            </button>
+          ) : undefined
         }
       />
       {downloadError && (

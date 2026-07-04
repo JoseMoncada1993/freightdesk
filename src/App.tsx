@@ -11,9 +11,10 @@ import Customers from "./pages/Customers";
 import Carriers from "./pages/Carriers";
 import Documents from "./pages/Documents";
 import Tasks from "./pages/Tasks";
+import Team from "./pages/Team";
 
 export default function App() {
-  const { session, loading } = useAuth();
+  const { session, loading, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="carriers" element={<Carriers />} />
         <Route path="documents" element={<Documents />} />
         <Route path="tasks" element={<Tasks />} />
+        {isAdmin && <Route path="team" element={<Team />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

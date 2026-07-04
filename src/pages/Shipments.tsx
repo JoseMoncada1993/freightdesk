@@ -5,6 +5,7 @@ import DataTable from "@/components/DataTable";
 import ImportCsvModal from "@/components/ImportCsvModal";
 import LoadForm from "@/components/LoadForm";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/AuthContext";
 import { useLoads } from "@/hooks/useLoads";
 import { useCarriers, useCustomers } from "@/hooks/useTables";
 import { useUpdateLoad } from "@/hooks/useMutations";
@@ -35,7 +36,7 @@ const ageDays = (l: LoadEnriched) => {
 const LEGACY_STATUSES = ["Quoted", "Shipment approved", "BOL approved", "BOL sent", "Shipment booked"];
 const DONE_STATUSES = ["delivered", "cancelled"];
 
-function StatusSelect({ load }: { load: LoadEnriched }) {
+function StatusSelect({ load, disabled }: { load: LoadEnriched; disabled?: boolean }) {
   const update = useUpdateLoad();
   const options = load.status && LEGACY_STATUSES.includes(load.status)
     ? [load.status, ...LOAD_STATUSES]
@@ -43,7 +44,7 @@ function StatusSelect({ load }: { load: LoadEnriched }) {
   return (
     <select
       value={load.status ?? "booked"}
-      disabled={update.isPending || load.id == null}
+      disabled={disabled || update.isPending || load.id == null}
       onChange={(e) => {
         if (load.id == null) return;
         const status = e.target.value;
@@ -73,6 +74,8 @@ export default function Shipments() {
   const update = useUpdateLoad();
   const customers = useCustomers();
   const carriers = useCarriers();
+  const { can } = useAuth();
+  const canWrite = can("shipments");
   const qc = useQueryClient();
   const [showImport, setShowImport] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -153,12 +156,14 @@ export default function Shipments() {
               ))}
             </select>
             <button onClick={doExport} {...exportButtonProps(rows.length)}>Export CSV</button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Import CSV
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowImport(true)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Import CSV
+              </button>
+            )}
             <button
               onClick={toggleAll}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
@@ -172,12 +177,14 @@ export default function Shipments() {
             >
               Generate BOLs ({selected.size})
             </button>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + Add shipment
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                + Add shipment
+              </button>
+            )}
           </div>
         }
       />
@@ -210,7 +217,7 @@ export default function Shipments() {
           { header: "Carrier", cell: (r) => r.carrier_name ?? "—", sort: (r) => r.carrier_name },
           { header: "Transport", cell: (r) => r.transport_type ?? "—", sort: (r) => r.transport_type },
           { header: "Equipment", cell: (r) => r.equipment_type ?? "—", sort: (r) => r.equipment_type },
-          { header: "Status", cell: (r) => <StatusSelect load={r} />, sort: (r) => r.status },
+          { header: "Status", cell: (r) => <StatusSelect load={r} disabled={!canWrite} />, sort: (r) => r.status },
           { header: "Pickup", cell: (r) => fmtDateTime(r.pickup_at), sort: (r) => r.pickup_at },
           { header: "Delivery", cell: (r) => fmtDateTime(r.delivery_at), sort: (r) => r.delivery_at },
           { header: "Rate", cell: (r) => money(r.rate_usd), sort: (r) => r.rate_usd },
@@ -240,9 +247,11 @@ export default function Shipments() {
             header: "",
             cell: (r) => (
               <div className="flex gap-2 justify-end whitespace-nowrap">
-                <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
-                  Edit
-                </button>
+                {canWrite && (
+                  <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
+                    Edit
+                  </button>
+                )}
                 <button
                   onClick={() => downloadBols([r])}
                   className="text-slate-500 hover:underline text-xs font-medium"
@@ -250,7 +259,7 @@ export default function Shipments() {
                 >
                   BOL
                 </button>
-                {r.id != null && (
+                {canWrite && r.id != null && (
                   <button
                     onClick={() => update.mutate({ id: r.id!, archived: !r.archived })}
                     className="text-slate-500 hover:underline text-xs font-medium"

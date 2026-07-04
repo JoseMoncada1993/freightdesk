@@ -57,6 +57,17 @@ export function useUpdateCarrier() {
   });
 }
 
+export function useDeleteCarrier() {
+  const invalidate = useInvalidate(["carriers"]);
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from("carriers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 export function useAddTask() {
   const invalidate = useInvalidate(["tasks"]);
   return useMutation({

@@ -667,22 +667,28 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          email: string | null
           full_name: string | null
           id: string
+          role: string
           updated_at: string | null
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          email?: string | null
           full_name?: string | null
           id: string
+          role?: string
           updated_at?: string | null
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
+          role?: string
           updated_at?: string | null
           username?: string | null
         }
@@ -697,6 +703,7 @@ export type Database = {
           id: number
           load_id: number | null
           notes: string | null
+          recurrence: string
           status: string
           title: string
         }
@@ -708,6 +715,7 @@ export type Database = {
           id?: never
           load_id?: number | null
           notes?: string | null
+          recurrence?: string
           status?: string
           title: string
         }
@@ -719,6 +727,7 @@ export type Database = {
           id?: never
           load_id?: number | null
           notes?: string | null
+          recurrence?: string
           status?: string
           title?: string
         }
@@ -1049,6 +1058,7 @@ export type Database = {
         }
         Returns: number
       }
+      my_role: { Args: never; Returns: string }
       record_inventory_movement: {
         Args: {
           p_item_id: number

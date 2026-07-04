@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
 import ImportCsvModal from "@/components/ImportCsvModal";
 import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/AuthContext";
 import { useCarriers } from "@/hooks/useTables";
-import { useAddCarrier, useUpdateCarrier } from "@/hooks/useMutations";
+import { useAddCarrier, useUpdateCarrier, useDeleteCarrier } from "@/hooks/useMutations";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
 import type { Carrier } from "@/lib/types";
 
-const MODES = ["truckload", "ltl", "intermodal", "parcel", "freight_forwarder", "customs_broker"];
+const MODES = ["truckload", "ltl", "intermodal", "parcel", "broker", "freight_forwarder", "customs_broker"];
 
 function complianceOk(c: Carrier) {
   return c.w9_received && c.coi_received && c.carrier_packet_received;
@@ -143,10 +144,49 @@ function CarrierForm({ carrier, onClose }: { carrier: Carrier | null; onClose: (
 export default function Carriers() {
   const { data, isLoading, error } = useCarriers();
   const update = useUpdateCarrier();
+  const del = useDeleteCarrier();
+  const { can, canDelete } = useAuth();
+  const canWrite = can("carriers");
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<Carrier | null>(null);
+  const [search, setSearch] = useState("");
+  const [modeFilter, setModeFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [complianceFilter, setComplianceFilter] = useState("all");
+
+  const rows = useMemo(() => {
+    let out = data ?? [];
+    if (modeFilter !== "all") out = out.filter((c) => c.mode === modeFilter);
+    if (activeFilter !== "all") out = out.filter((c) => (activeFilter === "active" ? c.active : !c.active));
+    if (complianceFilter !== "all") {
+      out = out.filter((c) => (complianceFilter === "complete" ? complianceOk(c) : !complianceOk(c)));
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((c) =>
+        [c.name, c.scac, c.mc_number, c.usdot_number, c.contact_name, c.contact_email, c.contact_phone, c.insurance_company]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q)),
+      );
+    }
+    return out;
+  }, [data, search, modeFilter, activeFilter, complianceFilter]);
+
+  const handleDelete = (c: Carrier) => {
+    if (!confirm(`Delete carrier "${c.name}"? This cannot be undone.`)) return;
+    del.mutate(c.id, {
+      onError: (e: unknown) => {
+        const msg = e instanceof Error ? e.message : "";
+        alert(
+          msg.includes("violates foreign key")
+            ? `"${c.name}" is linked to existing loads or trailers, so it can't be deleted. Mark it Inactive instead to keep history intact.`
+            : "Could not delete carrier. " + msg,
+        );
+      },
+    });
+  };
 
   return (
     <div>
@@ -158,7 +198,7 @@ export default function Carriers() {
             <button
               onClick={() =>
                 exportCsv(
-                  (data ?? []).map((c) => ({
+                  rows.map((c) => ({
                     name: c.name, scac: c.scac, mode: c.mode, mc_number: c.mc_number,
                     usdot_number: c.usdot_number, contact: c.contact_name, phone: c.contact_phone,
                     email: c.contact_email, insurance: c.insurance_company, coi_expiration: c.coi_expiration,
@@ -167,37 +207,67 @@ export default function Carriers() {
                   "carriers",
                 )
               }
-              {...exportButtonProps(data?.length ?? 0)}
+              {...exportButtonProps(rows.length)}
             >
               Export CSV
             </button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Import CSV
-            </button>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + Add carrier
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setShowImport(true)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Import CSV
+              </button>
+            )}
+            {canWrite && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                + Add carrier
+              </button>
+            )}
           </div>
         }
       />
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, SCAC, MC #, USDOT, contact…"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <select value={modeFilter} onChange={(e) => setModeFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">All modes</option>
+          {MODES.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        <select value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">Active + inactive</option>
+          <option value="active">Active only</option>
+          <option value="inactive">Inactive only</option>
+        </select>
+        <select value={complianceFilter} onChange={(e) => setComplianceFilter(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="all">All compliance</option>
+          <option value="complete">Compliance complete</option>
+          <option value="missing">Missing docs</option>
+        </select>
+        <span className="text-xs text-slate-400">{rows.length} carriers</span>
+      </div>
       <DataTable<Carrier>
-        rows={data}
+        rows={rows}
         isLoading={isLoading}
         error={error}
         rowKey={(r) => r.id}
+        empty="No carriers match this filter."
         columns={[
-          { header: "Name", cell: (r) => <span className="font-medium">{r.name}</span> },
-          { header: "SCAC", cell: (r) => r.scac ?? "—" },
-          { header: "Mode", cell: (r) => r.mode },
-          { header: "MC #", cell: (r) => r.mc_number ?? "—" },
-          { header: "USDOT #", cell: (r) => r.usdot_number ?? "—" },
-          { header: "Contact", cell: (r) => r.contact_name ?? r.contact_phone ?? "—" },
+          { header: "Name", cell: (r) => <span className="font-medium">{r.name}</span>, sort: (r) => r.name },
+          { header: "SCAC", cell: (r) => r.scac ?? "—", sort: (r) => r.scac },
+          { header: "Mode", cell: (r) => r.mode, sort: (r) => r.mode },
+          { header: "MC #", cell: (r) => r.mc_number ?? "—", sort: (r) => r.mc_number },
+          { header: "USDOT #", cell: (r) => r.usdot_number ?? "—", sort: (r) => r.usdot_number },
+          { header: "Contact", cell: (r) => r.contact_name ?? r.contact_phone ?? "—", sort: (r) => r.contact_name },
           {
             header: "COI expires",
             cell: (r) =>
@@ -208,6 +278,7 @@ export default function Carriers() {
               ) : (
                 "—"
               ),
+            sort: (r) => r.coi_expiration,
           },
           {
             header: "Compliance",
@@ -219,26 +290,46 @@ export default function Carriers() {
                   Missing docs
                 </span>
               ),
+            sort: (r) => (complianceOk(r) ? 1 : 0),
           },
           {
             header: "Active",
-            cell: (r) => (
-              <button
-                onClick={() => update.mutate({ id: r.id, active: !r.active })}
-                className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
-                title="Click to toggle"
-              >
-                {r.active ? "Active" : "Inactive"}
-              </button>
-            ),
+            cell: (r) =>
+              canWrite ? (
+                <button
+                  onClick={() => update.mutate({ id: r.id, active: !r.active })}
+                  className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
+                  title="Click to toggle"
+                >
+                  {r.active ? "Active" : "Inactive"}
+                </button>
+              ) : (
+                <span
+                  className={`text-xs font-medium rounded-full px-2.5 py-0.5 ${r.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}
+                >
+                  {r.active ? "Active" : "Inactive"}
+                </span>
+              ),
+            sort: (r) => (r.active ? 1 : 0),
           },
           {
             header: "",
-            cell: (r) => (
-              <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
-                Edit
-              </button>
-            ),
+            cell: (r) =>
+              canWrite ? (
+                <div className="flex gap-2 justify-end whitespace-nowrap">
+                  <button onClick={() => setEditing(r)} className="text-blue-600 hover:underline text-xs font-medium">
+                    Edit
+                  </button>
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(r)}
+                      className="text-slate-400 hover:text-red-600 text-xs font-medium"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              ) : null,
           },
         ]}
       />
