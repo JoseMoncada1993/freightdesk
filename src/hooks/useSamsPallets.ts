@@ -75,8 +75,14 @@ export function useUpsertSamsPallets() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (rows: Database["public"]["Tables"]["sams_pallets"]["Insert"][]) => {
-      const stamped = rows.map((r) => ({ ...r, updated_at: new Date().toISOString() }));
-      for (const group of chunk(stamped, 500)) {
+      // Collapse duplicate pallet_ids (last wins) — Postgres upsert can't touch
+      // the same conflict target twice in one statement.
+      const byPallet = new Map<string, Database["public"]["Tables"]["sams_pallets"]["Insert"]>();
+      for (const r of rows) {
+        if (!r.pallet_id) continue;
+        byPallet.set(String(r.pallet_id), { ...r, updated_at: new Date().toISOString() });
+      }
+      for (const group of chunk([...byPallet.values()], 500)) {
         const { error } = await supabase
           .from("sams_pallets")
           .upsert(group, { onConflict: "pallet_id" });
