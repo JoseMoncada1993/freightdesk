@@ -700,6 +700,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sams_pallets: {
+        Row: {
+          club: string | null
+          created_at: string
+          delivery_date: string | null
+          id: number
+          notes: string | null
+          pallet_id: string
+          sku: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          club?: string | null
+          created_at?: string
+          delivery_date?: string | null
+          id?: never
+          notes?: string | null
+          pallet_id: string
+          sku?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          club?: string | null
+          created_at?: string
+          delivery_date?: string | null
+          id?: never
+          notes?: string | null
+          pallet_id?: string
+          sku?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       skus: {
         Row: {
           created_at: string

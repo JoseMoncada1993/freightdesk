@@ -8,6 +8,7 @@ const links = [
   { to: "/billing", label: "Billing" },
   { to: "/trailers", label: "Drop Trailers" },
   { to: "/inventory", label: "Inventory" },
+  { to: "/sams", label: "Sam's Club" },
   { to: "/skus", label: "SKU Generator" },
   { to: "/customers", label: "Customers" },
   { to: "/carriers", label: "Carriers" },
