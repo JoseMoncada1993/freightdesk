@@ -1,4 +1,5 @@
-// Diesel price via EIA API v2 (rebuild to inline EIA env var)
+// Diesel price via the /api/diesel Pages Function (server-side EIA proxy).
+// The EIA key lives as a runtime secret on the server, never in the client bundle.
 import { useEffect, useState, useCallback } from "react";
 
 type DieselData = {
@@ -6,9 +7,6 @@ type DieselData = {
   period: string;
   units: string;
 };
-
-const EIA_SERIES = "EMD_EPD2D_PTE_NUS_DPG";
-const EIA_BASE = "https://api.eia.gov/v2/petroleum/pri/gnd/data/";
 
 function fmtWeek(period: string): string {
   const d = new Date(period + "T00:00:00");
@@ -29,49 +27,23 @@ export default function DieselWidget() {
     setLoading(true);
     setError(null);
 
-    const apiKey = import.meta.env.VITE_EIA_API_KEY as string | undefined;
-    if (!apiKey) {
-      setError("Diesel price is unavailable: missing EIA API key configuration.");
-      setLoading(false);
-      return;
-    }
-
-    const params = new URLSearchParams();
-    params.set("frequency", "weekly");
-    params.append("data[0]", "value");
-    params.set("facets[series][]", EIA_SERIES);
-    params.set("sort[0][column]", "period");
-    params.set("sort[0][direction]", "desc");
-    params.set("offset", "0");
-    params.set("length", "1");
-    params.set("api_key", apiKey);
-
     try {
-      const res = await fetch(EIA_BASE + "?" + params.toString());
+      const res = await fetch("/api/diesel");
       const json = await res.json();
 
-      if (!res.ok) {
-        const msg =
-          (json && json.error && (json.error.message || json.error.code)) ||
-          "HTTP " + res.status;
-        throw new Error(String(msg));
+      if (!res.ok || (json && json.error)) {
+        throw new Error(String((json && json.error) || "HTTP " + res.status));
       }
 
-      const rows =
-        json && json.response && Array.isArray(json.response.data)
-          ? json.response.data
-          : [];
-      const row = rows[0];
-      const value = row ? Number(row.value) : NaN;
-
-      if (!row || Number.isNaN(value)) {
+      const value = Number(json.price);
+      if (Number.isNaN(value)) {
         throw new Error("No diesel price data returned.");
       }
 
       setData({
         price: value,
-        period: String(row.period),
-        units: String(row.units || "$/GAL"),
+        period: String(json.period),
+        units: String(json.units || "$/GAL"),
       });
     } catch (e) {
       setError(
