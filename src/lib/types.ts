@@ -12,6 +12,7 @@ export type TaskRecord = Database["public"]["Tables"]["tasks"]["Row"];
 export type Warehouse = Database["public"]["Tables"]["warehouses"]["Row"];
 export type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
 export type YardTrailer = Database["public"]["Tables"]["yard_trailers"]["Row"];
+export type Sku = Database["public"]["Tables"]["skus"]["Row"];
 
 export type LoadEnriched = Database["public"]["Views"]["loads_enriched"]["Row"];
 export type YardTrailerEnriched = Database["public"]["Views"]["yard_trailers_enriched"]["Row"];

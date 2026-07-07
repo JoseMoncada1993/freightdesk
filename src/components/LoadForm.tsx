@@ -10,6 +10,10 @@ import type { Customer, CustomerAddress, LoadEnriched } from "@/lib/types";
 
 const EQUIPMENT = ["Dry van 53'", "Dry van 48'", "Reefer", "Flatbed", "Step deck", "Box truck", "Sprinter", "Container", "Other"];
 
+// Suggestions for the freight "Type" field (handling-unit / service type). Free
+// text — the input stays editable so any value can be entered.
+const FREIGHT_TYPES = ["LTL", "FTL", "Pallets", "Boxes", "Crates", "Cases", "Drums", "Rolls", "Loose", "Skids"];
+
 interface LoadFormProps {
   load: LoadEnriched | null; // null = add
   onClose: () => void;
@@ -170,6 +174,8 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
   const [transportType, setTransportType] = useState(load?.transport_type ?? "");
   const [equipment, setEquipment] = useState(load?.equipment_type ?? "");
   const [commodity, setCommodity] = useState(load?.commodity ?? "");
+  const [qty, setQty] = useState(load?.qty != null ? String(load.qty) : "");
+  const [freightType, setFreightType] = useState(load?.freight_type ?? "");
   const [weight, setWeight] = useState(load?.weight_lbs != null ? String(load.weight_lbs) : "");
   const [bolNumber, setBolNumber] = useState(load?.bol_number ?? "");
   const [pickupDate, setPickupDate] = useState(toDateInput(load?.pickup_at));
@@ -224,6 +230,8 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
         transport_type: transportType || null,
         equipment_type: equipment || null,
         commodity: commodity.trim() || null,
+        qty: qty ? Number(qty) : null,
+        freight_type: freightType.trim() || null,
         weight_lbs: weight ? Number(weight) : null,
         bol_number: bolNumber.trim() || null,
         pickup_at: fromDateInput(pickupDate),
@@ -308,6 +316,23 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
         </Field>
         <Field label="Commodity">
           <input value={commodity} onChange={(e) => setCommodity(e.target.value)} className={inputCls} />
+        </Field>
+        <Field label="Qty">
+          <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder="e.g. 12" className={inputCls} />
+        </Field>
+        <Field label="Type">
+          <input
+            value={freightType}
+            onChange={(e) => setFreightType(e.target.value)}
+            list="freight-types"
+            placeholder="e.g. Pallets, LTL"
+            className={inputCls}
+          />
+          <datalist id="freight-types">
+            {FREIGHT_TYPES.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
         </Field>
         <Field label="Weight (lbs)">
           <input value={weight} onChange={(e) => setWeight(e.target.value)} inputMode="numeric" className={inputCls} />

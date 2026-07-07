@@ -133,13 +133,26 @@ export function useSaveFullLoad() {
       }
       let laneId: number | null = null;
       if (laneOrigin && laneDestination) {
-        const { data: lane, error: laneError } = await supabase
+        // Lanes are unique on (origin, destination). Reuse an existing lane so a
+        // second shipment on the same lane doesn't hit lanes_origin_destination_key.
+        const { data: existing, error: findError } = await supabase
           .from("lanes")
-          .insert({ origin: laneOrigin, destination: laneDestination, miles: laneMiles ?? null })
           .select("id")
-          .single();
-        if (laneError) throw laneError;
-        laneId = lane.id;
+          .eq("origin", laneOrigin)
+          .eq("destination", laneDestination)
+          .maybeSingle();
+        if (findError) throw findError;
+        if (existing) {
+          laneId = existing.id;
+        } else {
+          const { data: lane, error: laneError } = await supabase
+            .from("lanes")
+            .insert({ origin: laneOrigin, destination: laneDestination, miles: laneMiles ?? null })
+            .select("id")
+            .single();
+          if (laneError) throw laneError;
+          laneId = lane.id;
+        }
       }
       const { error } = await supabase.from("loads").insert({ ...fields, lane_id: laneId });
       if (error) throw error;

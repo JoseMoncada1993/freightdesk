@@ -131,7 +131,7 @@ export function buildBolPdf(load: LoadEnriched): Uint8Array {
   ty -= 14;
   // data row
   p.text(cols[0] + 3, ty + 3, s(load.ref), 8);
-  p.text(cols[1] + 3, ty + 3, "", 8);
+  p.text(cols[1] + 3, ty + 3, s(load.qty), 8);
   p.text(cols[2] + 3, ty + 3, s(load.weight_lbs), 8);
   p.text(cols[3] + 3, ty + 3, "", 8);
   p.text(cols[4] + 3, ty + 3, s(load.equipment_type), 8);
@@ -157,8 +157,8 @@ export function buildBolPdf(load: LoadEnriched): Uint8Array {
   const cheaders = ["QTY", "TYPE", "WEIGHT (LBS)", "COMMODITY DESCRIPTION", "NMFC NO.", "CLASS"];
   cheaders.forEach((h, i) => p.text(ccols[i] + 3, ty + 3, h, 6.5, { bold: true }));
   ty -= 14;
-  p.text(ccols[0] + 3, ty + 3, "", 8);
-  p.text(ccols[1] + 3, ty + 3, s(load.equipment_type), 8);
+  p.text(ccols[0] + 3, ty + 3, s(load.qty), 8);
+  p.text(ccols[1] + 3, ty + 3, s(load.freight_type ?? load.equipment_type), 8);
   p.text(ccols[2] + 3, ty + 3, s(load.weight_lbs), 8);
   p.text(ccols[3] + 3, ty + 3, s(load.commodity).slice(0, 60), 8);
   ty -= 14;

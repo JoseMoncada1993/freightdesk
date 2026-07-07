@@ -11,6 +11,7 @@ import Customers from "./pages/Customers";
 import Carriers from "./pages/Carriers";
 import Documents from "./pages/Documents";
 import Tasks from "./pages/Tasks";
+import SkuGenerator from "./pages/SkuGenerator";
 import Team from "./pages/Team";
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="carriers" element={<Carriers />} />
         <Route path="documents" element={<Documents />} />
         <Route path="tasks" element={<Tasks />} />
+        <Route path="skus" element={<SkuGenerator />} />
         {isAdmin && <Route path="team" element={<Team />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

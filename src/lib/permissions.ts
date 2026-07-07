@@ -30,7 +30,8 @@ export type WriteModule =
   | "customers"
   | "carriers"
   | "documents"
-  | "tasks";
+  | "tasks"
+  | "skus";
 
 const WRITE_ACCESS: Record<WriteModule, Role[]> = {
   shipments: ["admin", "dispatcher"],
@@ -41,6 +42,7 @@ const WRITE_ACCESS: Record<WriteModule, Role[]> = {
   carriers: ["admin", "dispatcher"],
   documents: ["admin", "dispatcher", "warehouse"],
   tasks: ["admin", "dispatcher", "warehouse"],
+  skus: ["admin", "dispatcher"],
 };
 
 export function canWrite(role: Role | null, module: WriteModule): boolean {

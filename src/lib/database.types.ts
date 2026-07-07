@@ -502,6 +502,7 @@ export type Database = {
           entity: string | null
           equipment_type: string | null
           eta: string | null
+          freight_type: string | null
           id: number
           invoice_due_date: string | null
           invoice_number: string | null
@@ -510,11 +511,12 @@ export type Database = {
           miles_calc: number | null
           notes: string | null
           on_time: boolean | null
-          paid_at: string | null
           origin_city: string | null
           origin_state: string | null
           origin_zip: string | null
+          paid_at: string | null
           pickup_at: string | null
+          qty: number | null
           rate_per_mile: number | null
           rate_usd: number | null
           ref: string
@@ -556,6 +558,7 @@ export type Database = {
           entity?: string | null
           equipment_type?: string | null
           eta?: string | null
+          freight_type?: string | null
           id?: never
           invoice_due_date?: string | null
           invoice_number?: string | null
@@ -564,11 +567,12 @@ export type Database = {
           miles_calc?: number | null
           notes?: string | null
           on_time?: boolean | null
-          paid_at?: string | null
           origin_city?: string | null
           origin_state?: string | null
           origin_zip?: string | null
+          paid_at?: string | null
           pickup_at?: string | null
+          qty?: number | null
           rate_per_mile?: number | null
           rate_usd?: number | null
           ref: string
@@ -610,6 +614,7 @@ export type Database = {
           entity?: string | null
           equipment_type?: string | null
           eta?: string | null
+          freight_type?: string | null
           id?: never
           invoice_due_date?: string | null
           invoice_number?: string | null
@@ -618,11 +623,12 @@ export type Database = {
           miles_calc?: number | null
           notes?: string | null
           on_time?: boolean | null
-          paid_at?: string | null
           origin_city?: string | null
           origin_state?: string | null
           origin_zip?: string | null
+          paid_at?: string | null
           pickup_at?: string | null
+          qty?: number | null
           rate_per_mile?: number | null
           rate_usd?: number | null
           ref?: string
@@ -693,6 +699,60 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      skus: {
+        Row: {
+          created_at: string
+          id: number
+          load_id: number | null
+          load_ref: string | null
+          location: string | null
+          notes: string | null
+          prefix: string
+          program: string | null
+          sku: string
+          supplier: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          load_id?: number | null
+          load_ref?: string | null
+          location?: string | null
+          notes?: string | null
+          prefix: string
+          program?: string | null
+          sku: string
+          supplier?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          load_id?: number | null
+          load_ref?: string | null
+          location?: string | null
+          notes?: string | null
+          prefix?: string
+          program?: string | null
+          sku?: string
+          supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skus_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skus_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads_enriched"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -933,7 +993,6 @@ export type Database = {
           carrier_name: string | null
           carrier_pay_usd: number | null
           carrier_scac: string | null
-          margin_usd: number | null
           commodity: string | null
           consignee_address1: string | null
           consignee_address2: string | null
@@ -955,13 +1014,14 @@ export type Database = {
           entity: string | null
           equipment_type: string | null
           eta: string | null
+          freight_type: string | null
           id: number | null
           invoice_due_date: string | null
           invoice_number: string | null
           invoiced_at: string | null
           lane: string | null
           lane_id: number | null
-          paid_at: string | null
+          margin_usd: number | null
           miles: number | null
           miles_calc: number | null
           notes: string | null
@@ -970,7 +1030,9 @@ export type Database = {
           origin_city: string | null
           origin_state: string | null
           origin_zip: string | null
+          paid_at: string | null
           pickup_at: string | null
+          qty: number | null
           rate_per_mile: number | null
           rate_usd: number | null
           ref: string | null

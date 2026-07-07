@@ -126,6 +126,7 @@ export default function Shipments() {
         origin: l.origin_city ? `${l.origin_city}, ${l.origin_state ?? ""}` : l.origin,
         destination: l.dest_city ? `${l.dest_city}, ${l.dest_state ?? ""}` : l.destination,
         miles: l.miles, transport_type: l.transport_type, equipment: l.equipment_type, commodity: l.commodity,
+        qty: l.qty, freight_type: l.freight_type,
         weight_lbs: l.weight_lbs, rate_usd: l.rate_usd, carrier_pay_usd: l.carrier_pay_usd,
         margin_usd: l.margin_usd, bol_number: l.bol_number,
         pickup_at: l.pickup_at, delivery_at: l.delivery_at, age_days: ageDays(l),
