@@ -31,7 +31,9 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "public, max-age=3600",
+      // Short window: EIA data is weekly, but keep it small so a response-shape
+      // change (new fields) can't sit stale in a browser cache for long.
+      "cache-control": "public, max-age=300",
     },
   });
 

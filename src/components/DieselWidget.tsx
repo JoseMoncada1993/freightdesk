@@ -34,7 +34,9 @@ export default function DieselWidget() {
     setError(null);
 
     try {
-      const res = await fetch("/api/diesel");
+      // no-store so a stale browser-cached response can't hide newer fields
+      // (the endpoint's shape can grow, e.g. when regions were added).
+      const res = await fetch("/api/diesel", { cache: "no-store" });
       const json = await res.json();
 
       if (!res.ok || (json && json.error)) {
