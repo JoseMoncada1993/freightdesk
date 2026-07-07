@@ -34,15 +34,21 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-// Bulk set status on a set of rows (the "Update Status" action).
-export function useUpdateSamsStatus() {
+// Bulk-apply a field patch (status / delivery_date / notes) to a set of rows.
+export function useBulkUpdateSams() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ ids, status }: { ids: number[]; status: string | null }) => {
+    mutationFn: async ({
+      ids,
+      patch,
+    }: {
+      ids: number[];
+      patch: Omit<Database["public"]["Tables"]["sams_pallets"]["Update"], "id">;
+    }) => {
       for (const group of chunk(ids, 400)) {
         const { error } = await supabase
           .from("sams_pallets")
-          .update({ status, updated_at: new Date().toISOString() })
+          .update({ ...patch, updated_at: new Date().toISOString() })
           .in("id", group);
         if (error) throw error;
       }

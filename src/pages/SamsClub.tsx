@@ -9,7 +9,7 @@ import Modal, { Field, ModalActions, inputCls } from "@/components/ui/Modal";
 import { useAuth } from "@/lib/AuthContext";
 import {
   useSamsPallets,
-  useUpdateSamsStatus,
+  useBulkUpdateSams,
   useUpdateSamsPallet,
   useUpsertSamsPallets,
 } from "@/hooks/useSamsPallets";
@@ -61,6 +61,38 @@ function InlineStatus({ pallet, disabled }: { pallet: SamsPallet; disabled: bool
         <option key={s} value={s}>{s}</option>
       ))}
     </select>
+  );
+}
+
+function InlineDate({ pallet }: { pallet: SamsPallet }) {
+  const update = useUpdateSamsPallet();
+  return (
+    <input
+      type="date"
+      value={pallet.delivery_date ?? ""}
+      disabled={update.isPending}
+      onChange={(e) => update.mutate({ id: pallet.id, delivery_date: e.target.value || null })}
+      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+  );
+}
+
+function InlineNotes({ pallet }: { pallet: SamsPallet }) {
+  const update = useUpdateSamsPallet();
+  const [val, setVal] = useState(pallet.notes ?? "");
+  const commit = () => {
+    const next = val.trim() || null;
+    if (next !== (pallet.notes ?? null)) update.mutate({ id: pallet.id, notes: next });
+  };
+  return (
+    <input
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+      placeholder="—"
+      className="w-full min-w-[9rem] rounded-md border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
   );
 }
 
@@ -136,7 +168,7 @@ export default function SamsClub() {
   const { can } = useAuth();
   const canWrite = can("sams");
   const { data, isLoading, error } = useSamsPallets();
-  const bulkUpdate = useUpdateSamsStatus();
+  const bulkUpdate = useBulkUpdateSams();
   const importUpsert = useUpsertSamsPallets();
 
   const [statusFilter, setStatusFilter] = useState("");
@@ -144,6 +176,8 @@ export default function SamsClub() {
   const [palletSearch, setPalletSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>("Scheduled");
+  const [bulkDelivery, setBulkDelivery] = useState("");
+  const [bulkNotes, setBulkNotes] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -193,13 +227,22 @@ export default function SamsClub() {
   const toggleAll = () =>
     setSelected(() => (allVisibleSelected ? new Set() : new Set(visible.map((r) => r.id))));
 
-  const applyBulk = () => {
-    const ids = Array.from(selected);
+  const selectedIds = () => Array.from(selected);
+
+  const applyStatus = () => {
+    const ids = selectedIds();
     if (ids.length === 0) return;
-    bulkUpdate.mutate(
-      { ids, status: bulkStatus || null },
-      { onSuccess: () => setSelected(new Set()) },
-    );
+    bulkUpdate.mutate({ ids, patch: { status: bulkStatus || null } }, { onSuccess: () => setSelected(new Set()) });
+  };
+  const applyDelivery = () => {
+    const ids = selectedIds();
+    if (ids.length === 0) return;
+    bulkUpdate.mutate({ ids, patch: { delivery_date: bulkDelivery || null } }, { onSuccess: () => setBulkDelivery("") });
+  };
+  const applyNotes = () => {
+    const ids = selectedIds();
+    if (ids.length === 0) return;
+    bulkUpdate.mutate({ ids, patch: { notes: bulkNotes.trim() || null } }, { onSuccess: () => setBulkNotes("") });
   };
 
   const doExport = () =>
@@ -296,25 +339,41 @@ export default function SamsClub() {
         )}
       </div>
 
-      {/* Bulk action bar */}
+      {/* Bulk action bar — apply Status, Delivery date, or Notes to the selected rows */}
       {canWrite && selected.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-          <span className="text-sm font-medium text-blue-900">{selected.size} selected</span>
-          <span className="text-sm text-slate-600">Set status to</span>
-          <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
-            {SAMS_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            <option value="">(clear status)</option>
-          </select>
-          <button
-            onClick={applyBulk}
-            disabled={bulkUpdate.isPending}
-            className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {bulkUpdate.isPending ? "Updating…" : "Update status"}
-          </button>
-          <button onClick={() => setSelected(new Set())} className="text-sm font-medium text-slate-500 hover:underline">
-            Clear selection
-          </button>
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-900">{selected.size} selected — apply to all:</span>
+            <button onClick={() => setSelected(new Set())} className="text-sm font-medium text-slate-500 hover:underline">
+              Clear selection
+            </button>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Status</span>
+              <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+                {SAMS_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                <option value="">(clear)</option>
+              </select>
+              <button onClick={applyStatus} disabled={bulkUpdate.isPending} className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                Apply
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Delivery</span>
+              <input type="date" value={bulkDelivery} onChange={(e) => setBulkDelivery(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+              <button onClick={applyDelivery} disabled={bulkUpdate.isPending} className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                Apply
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Notes / Tracking&nbsp;#</span>
+              <input value={bulkNotes} onChange={(e) => setBulkNotes(e.target.value)} placeholder="Waiting for pickup 6/30…" className="w-56 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+              <button onClick={applyNotes} disabled={bulkUpdate.isPending} className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                Apply
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -346,8 +405,16 @@ export default function SamsClub() {
             cell: (r) => (canWrite ? <InlineStatus pallet={r} disabled={false} /> : <StatusPill status={r.status} />),
             sort: (r) => r.status,
           },
-          { header: "Delivery", cell: (r) => fmtDate(r.delivery_date), sort: (r) => r.delivery_date },
-          { header: "Notes / Tracking #", cell: (r) => r.notes ?? "—", sort: (r) => r.notes },
+          {
+            header: "Delivery",
+            cell: (r) => (canWrite ? <InlineDate pallet={r} /> : fmtDate(r.delivery_date)),
+            sort: (r) => r.delivery_date,
+          },
+          {
+            header: "Notes / Tracking #",
+            cell: (r) => (canWrite ? <InlineNotes key={r.notes ?? ""} pallet={r} /> : (r.notes ?? "—")),
+            sort: (r) => r.notes,
+          },
         ]}
       />
 
