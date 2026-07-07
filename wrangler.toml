@@ -1,4 +1,6 @@
-# Cloudflare Pages configuration for FreightDesk (static SPA build output)
-name = "freightdesk"
+# Cloudflare Pages configuration for FreightDesk (static SPA build output).
+# Must match the LIVE, git-connected Pages project so `npm run deploy`
+# (wrangler pages deploy dist) targets production, not the stray "freightdesk".
+name = "freightdesk-app"
 compatibility_date = "2024-09-01"
 pages_build_output_dir = "dist"
