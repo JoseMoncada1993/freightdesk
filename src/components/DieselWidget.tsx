@@ -2,10 +2,16 @@
 // The EIA key lives as a runtime secret on the server, never in the client bundle.
 import { useEffect, useState, useCallback } from "react";
 
+type Region = {
+  name: string;
+  price: number;
+};
+
 type DieselData = {
   price: number;
   period: string;
   units: string;
+  regions: Region[];
 };
 
 function fmtWeek(period: string): string {
@@ -40,10 +46,20 @@ export default function DieselWidget() {
         throw new Error("No diesel price data returned.");
       }
 
+      const regions: Region[] = Array.isArray(json.regions)
+        ? json.regions
+            .map((r: { name: unknown; price: unknown }) => ({
+              name: String(r.name),
+              price: Number(r.price),
+            }))
+            .filter((r: Region) => !Number.isNaN(r.price))
+        : [];
+
       setData({
         price: value,
         period: String(json.period),
         units: String(json.units || "$/GAL"),
+        regions,
       });
     } catch (e) {
       setError(
@@ -92,11 +108,47 @@ export default function DieselWidget() {
           <p className="text-sm text-slate-600 mt-1">
             National average &middot; week of {fmtWeek(data.period)}
           </p>
+
+          {(() => {
+            const byRegion = data.regions.filter((r) => r.name !== "U.S. average");
+            if (byRegion.length === 0) return null;
+            return (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <p className="text-xs font-medium text-slate-500 mb-2">By region</p>
+                <ul className="space-y-1.5">
+                  {byRegion.map((r) => {
+                    const diff = r.price - data.price;
+                    // Higher-than-national diesel is worse for a carrier → amber; lower → emerald.
+                    const color =
+                      Math.abs(diff) < 0.005
+                        ? "text-slate-400"
+                        : diff > 0
+                          ? "text-amber-600"
+                          : "text-emerald-600";
+                    return (
+                      <li key={r.name} className="flex items-baseline justify-between text-sm">
+                        <span className="text-slate-600">{r.name}</span>
+                        <span className="flex items-baseline gap-2">
+                          <span className="font-semibold text-slate-800 tabular-nums">
+                            ${r.price.toFixed(3)}
+                          </span>
+                          <span className={`text-xs tabular-nums ${color}`}>
+                            {diff > 0 ? "+" : ""}
+                            {diff.toFixed(3)}
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })()}
         </div>
       )}
 
       <p className="text-slate-400 text-xs mt-3">
-        Source: U.S. DOE/EIA weekly on-highway diesel average
+        Source: U.S. DOE/EIA weekly on-highway diesel prices &middot; vs. national avg
       </p>
     </div>
   );
