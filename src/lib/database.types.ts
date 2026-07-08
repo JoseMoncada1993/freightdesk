@@ -736,6 +736,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sku_conventions: {
+        Row: {
+          created_at: string
+          id: number
+          location: string | null
+          prefix: string
+          program: string | null
+          supplier: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          location?: string | null
+          prefix: string
+          program?: string | null
+          supplier: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          location?: string | null
+          prefix?: string
+          program?: string | null
+          supplier?: string
+        }
+        Relationships: []
+      }
       skus: {
         Row: {
           created_at: string

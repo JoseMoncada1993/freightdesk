@@ -1,15 +1,23 @@
 // SKU Generator. Builds a SKU from a supplier/location/program prefix + load #,
-// optionally linked to a shipment. prefix = f(supplier, location, program);
-// SKU = prefix + "-" + load #. The prefix is editable so any convention works.
+// optionally linked to a shipment. Picking a supplier from the convention
+// reference (sku_conventions) auto-fills Location, Program and Prefix; SKU =
+// prefix + "-" + load #. All fields stay editable, and new supplier conventions
+// can be added inline.
 import { useMemo, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
-import { Field, inputCls, ErrorText } from "@/components/ui/Modal";
+import Modal, { Field, ModalActions, inputCls, ErrorText } from "@/components/ui/Modal";
 import { useAuth } from "@/lib/AuthContext";
 import { useLoads } from "@/hooks/useLoads";
-import { useSkus, useAddSku, useDeleteSku } from "@/hooks/useSkus";
+import {
+  useSkus,
+  useAddSku,
+  useDeleteSku,
+  useSkuConventions,
+  useAddSkuConvention,
+} from "@/hooks/useSkus";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
-import type { Sku } from "@/lib/types";
+import type { Sku, SkuConvention } from "@/lib/types";
 
 // Short code from a free-text field: uppercase alphanumerics, first 3 chars.
 const code = (v: string) =>
@@ -29,11 +37,87 @@ const fmtDate = (iso: string | null) => {
 const uniq = (xs: (string | null | undefined)[]) =>
   Array.from(new Set(xs.filter((x): x is string => !!x && x.trim() !== ""))).sort();
 
+function AddSupplierModal({
+  onClose,
+  onAdded,
+}: {
+  onClose: () => void;
+  onAdded: (c: { supplier: string; location: string; program: string; prefix: string }) => void;
+}) {
+  const add = useAddSkuConvention();
+  const [supplier, setSupplier] = useState("");
+  const [location, setLocation] = useState("");
+  const [program, setProgram] = useState("");
+  const [prefix, setPrefix] = useState("");
+
+  const canSave = supplier.trim() !== "" && prefix.trim() !== "" && !add.isPending;
+
+  const submit = () => {
+    if (!canSave) return;
+    const payload = {
+      supplier: supplier.trim(),
+      location: location.trim() || null,
+      program: program.trim() || null,
+      prefix: prefix.trim().toUpperCase(),
+    };
+    add.mutate(payload, {
+      onSuccess: () => {
+        onAdded({
+          supplier: payload.supplier,
+          location: payload.location ?? "",
+          program: payload.program ?? "",
+          prefix: payload.prefix,
+        });
+        onClose();
+      },
+    });
+  };
+
+  return (
+    <Modal
+      title="Add supplier & SKU convention"
+      onClose={onClose}
+      footer={
+        <ModalActions
+          onCancel={onClose}
+          onSubmit={submit}
+          submitLabel="Save convention"
+          pending={add.isPending}
+          disabled={!canSave}
+        />
+      }
+    >
+      <p className="text-sm text-slate-500">
+        Saved to the convention reference. Next time you pick this supplier, its location,
+        program and prefix fill in automatically.
+      </p>
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Supplier *">
+          <input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="WayFair Perris Salvage" className={inputCls} />
+        </Field>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Location">
+            <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Perris,CA" className={inputCls} />
+          </Field>
+          <Field label="Program">
+            <input value={program} onChange={(e) => setProgram(e.target.value)} placeholder="Salvage" className={inputCls} />
+          </Field>
+          <Field label="Prefix (SKU convention) *">
+            <input value={prefix} onChange={(e) => setPrefix(e.target.value.toUpperCase())} placeholder="WYFPRS" className={inputCls} />
+          </Field>
+        </div>
+      </div>
+      <ErrorText error={add.error} />
+    </Modal>
+  );
+}
+
 export default function SkuGenerator() {
   const { can } = useAuth();
   const canWrite = can("skus");
   const loads = useLoads();
   const { data: skus, isLoading, error } = useSkus();
+  const { data: conventions } = useSkuConventions();
   const addSku = useAddSku();
   const del = useDeleteSku();
 
@@ -43,16 +127,45 @@ export default function SkuGenerator() {
   const [prefixOverride, setPrefixOverride] = useState<string | null>(null);
   const [loadRef, setLoadRef] = useState("");
   const [notes, setNotes] = useState("");
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+
+  const convList = useMemo(() => conventions ?? [], [conventions]);
 
   const autoPrefix = buildPrefix(supplier, location, program);
   const prefix = prefixOverride ?? autoPrefix;
   const loadPart = cleanLoad(loadRef);
   const sku = [prefix, loadPart].filter(Boolean).join("-");
 
-  // Reuse prior values for quick entry.
-  const suppliers = useMemo(() => uniq((skus ?? []).map((s) => s.supplier)), [skus]);
-  const locations = useMemo(() => uniq((skus ?? []).map((s) => s.location)), [skus]);
-  const programs = useMemo(() => uniq((skus ?? []).map((s) => s.program)), [skus]);
+  // Apply a supplier convention's location/program/prefix to the form.
+  const applyConvention = (c: Pick<SkuConvention, "location" | "program" | "prefix">) => {
+    setLocation(c.location ?? "");
+    setProgram(c.program ?? "");
+    setPrefixOverride(c.prefix);
+  };
+
+  const onSupplierChange = (val: string) => {
+    setSupplier(val);
+    const match = convList.find((c) => c.supplier.toLowerCase() === val.trim().toLowerCase());
+    if (match) applyConvention(match);
+  };
+
+  const matchedConvention = convList.find(
+    (c) => c.supplier.toLowerCase() === supplier.trim().toLowerCase(),
+  );
+
+  // Datalist suggestions: convention values first, then anything used before.
+  const suppliers = useMemo(
+    () => uniq([...convList.map((c) => c.supplier), ...(skus ?? []).map((s) => s.supplier)]),
+    [convList, skus],
+  );
+  const locations = useMemo(
+    () => uniq([...convList.map((c) => c.location), ...(skus ?? []).map((s) => s.location)]),
+    [convList, skus],
+  );
+  const programs = useMemo(
+    () => uniq([...convList.map((c) => c.program), ...(skus ?? []).map((s) => s.program)]),
+    [convList, skus],
+  );
 
   const existing = new Set((skus ?? []).map((s) => s.sku));
   const duplicate = sku !== "" && existing.has(sku);
@@ -100,7 +213,7 @@ export default function SkuGenerator() {
     <div>
       <PageHeader
         title="SKU Generator"
-        subtitle="Build a SKU from a supplier / location / program prefix and a load #. Linked to a shipment when the load # matches."
+        subtitle="Pick a supplier to auto-fill its location, program and prefix, add a load #, then generate. Linked to a shipment when the load # matches."
         action={<button onClick={doExport} {...exportButtonProps((skus ?? []).length)}>Export CSV</button>}
       />
 
@@ -108,15 +221,36 @@ export default function SkuGenerator() {
         <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Field label="Supplier">
-              <input value={supplier} onChange={(e) => setSupplier(e.target.value)} list="sku-suppliers" placeholder="Acme Foods" className={inputCls} />
+              <div className="flex gap-2">
+                <input
+                  value={supplier}
+                  onChange={(e) => onSupplierChange(e.target.value)}
+                  list="sku-suppliers"
+                  placeholder="Start typing a supplier…"
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAddSupplier(true)}
+                  title="Add a new supplier & convention"
+                  className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  + New
+                </button>
+              </div>
               <datalist id="sku-suppliers">{suppliers.map((v) => <option key={v} value={v} />)}</datalist>
+              <p className="mt-1 text-xs text-slate-400">
+                {matchedConvention
+                  ? `Convention: ${matchedConvention.prefix}${matchedConvention.location ? ` · ${matchedConvention.location}` : ""}`
+                  : `${convList.length} known suppliers — auto-fills location, program & prefix`}
+              </p>
             </Field>
             <Field label="Location">
-              <input value={location} onChange={(e) => setLocation(e.target.value)} list="sku-locations" placeholder="Dallas, TX" className={inputCls} />
+              <input value={location} onChange={(e) => setLocation(e.target.value)} list="sku-locations" placeholder="Perris,CA" className={inputCls} />
               <datalist id="sku-locations">{locations.map((v) => <option key={v} value={v} />)}</datalist>
             </Field>
             <Field label="Program">
-              <input value={program} onChange={(e) => setProgram(e.target.value)} list="sku-programs" placeholder="Retail" className={inputCls} />
+              <input value={program} onChange={(e) => setProgram(e.target.value)} list="sku-programs" placeholder="Salvage" className={inputCls} />
               <datalist id="sku-programs">{programs.map((v) => <option key={v} value={v} />)}</datalist>
             </Field>
           </div>
@@ -126,7 +260,7 @@ export default function SkuGenerator() {
               <input
                 value={prefix}
                 onChange={(e) => setPrefixOverride(e.target.value.toUpperCase())}
-                placeholder="Auto from fields above"
+                placeholder="Auto from supplier / fields"
                 className={inputCls}
               />
             </Field>
@@ -193,6 +327,16 @@ export default function SkuGenerator() {
           },
         ]}
       />
+
+      {showAddSupplier && (
+        <AddSupplierModal
+          onClose={() => setShowAddSupplier(false)}
+          onAdded={(c) => {
+            setSupplier(c.supplier);
+            applyConvention(c);
+          }}
+        />
+      )}
     </div>
   );
 }

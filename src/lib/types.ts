@@ -13,6 +13,7 @@ export type Warehouse = Database["public"]["Tables"]["warehouses"]["Row"];
 export type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
 export type YardTrailer = Database["public"]["Tables"]["yard_trailers"]["Row"];
 export type Sku = Database["public"]["Tables"]["skus"]["Row"];
+export type SkuConvention = Database["public"]["Tables"]["sku_conventions"]["Row"];
 export type SamsPallet = Database["public"]["Tables"]["sams_pallets"]["Row"];
 
 export const SAMS_STATUSES = ["Need to Schedule", "Pending", "Scheduled", "Delivered"] as const;

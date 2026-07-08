@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
-import type { Sku } from "@/lib/types";
+import type { Sku, SkuConvention } from "@/lib/types";
 
 export function useSkus() {
   return useQuery({
@@ -25,6 +25,35 @@ export function useAddSku() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
+  });
+}
+
+// Supplier → location/program/prefix reference used to auto-fill the generator.
+export function useSkuConventions() {
+  return useQuery({
+    queryKey: ["sku_conventions"],
+    queryFn: async (): Promise<SkuConvention[]> => {
+      const { data, error } = await supabase
+        .from("sku_conventions")
+        .select("*")
+        .order("supplier", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// Add or update a supplier convention (upsert on the unique supplier name).
+export function useAddSkuConvention() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Database["public"]["Tables"]["sku_conventions"]["Insert"]) => {
+      const { error } = await supabase
+        .from("sku_conventions")
+        .upsert(input, { onConflict: "supplier" });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sku_conventions"] }),
   });
 }
 
