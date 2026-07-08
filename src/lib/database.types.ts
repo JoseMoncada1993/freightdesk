@@ -742,6 +742,7 @@ export type Database = {
           id: number
           location: string | null
           prefix: string
+          product_template: Json | null
           program: string | null
           supplier: string
         }
@@ -750,6 +751,7 @@ export type Database = {
           id?: never
           location?: string | null
           prefix: string
+          product_template?: Json | null
           program?: string | null
           supplier: string
         }
@@ -758,6 +760,7 @@ export type Database = {
           id?: never
           location?: string | null
           prefix?: string
+          product_template?: Json | null
           program?: string | null
           supplier?: string
         }
@@ -765,6 +768,7 @@ export type Database = {
       }
       skus: {
         Row: {
+          archived: boolean
           created_at: string
           id: number
           load_id: number | null
@@ -777,6 +781,7 @@ export type Database = {
           supplier: string | null
         }
         Insert: {
+          archived?: boolean
           created_at?: string
           id?: never
           load_id?: number | null
@@ -789,6 +794,7 @@ export type Database = {
           supplier?: string | null
         }
         Update: {
+          archived?: boolean
           created_at?: string
           id?: never
           load_id?: number | null

@@ -67,3 +67,40 @@ export function useDeleteSku() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
   });
 }
+
+// Archive / restore a generated SKU.
+export function useUpdateSku() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, archived }: { id: number; archived: boolean }) => {
+      const { error } = await supabase.from("skus").update({ archived }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
+  });
+}
+
+export function useUpdateSkuConvention() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...patch
+    }: { id: number } & Omit<Database["public"]["Tables"]["sku_conventions"]["Update"], "id">) => {
+      const { error } = await supabase.from("sku_conventions").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sku_conventions"] }),
+  });
+}
+
+export function useDeleteSkuConvention() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from("sku_conventions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sku_conventions"] }),
+  });
+}
