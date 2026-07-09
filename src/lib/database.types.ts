@@ -700,6 +700,39 @@ export type Database = {
         }
         Relationships: []
       }
+      routes: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          notes: string | null
+          round_trip: boolean
+          stops: Json
+          total_miles: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          notes?: string | null
+          round_trip?: boolean
+          stops?: Json
+          total_miles?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          notes?: string | null
+          round_trip?: boolean
+          stops?: Json
+          total_miles?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sams_pallets: {
         Row: {
           club: string | null

@@ -13,6 +13,7 @@ import Documents from "./pages/Documents";
 import Tasks from "./pages/Tasks";
 import SkuGenerator from "./pages/SkuGenerator";
 import SamsClub from "./pages/SamsClub";
+import RouteOptimizer from "./pages/RouteOptimizer";
 import Team from "./pages/Team";
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="skus" element={<SkuGenerator />} />
         <Route path="sams" element={<SamsClub />} />
+        <Route path="routes" element={<RouteOptimizer />} />
         {isAdmin && <Route path="team" element={<Team />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
