@@ -4,15 +4,17 @@ import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
 import ImportCsvModal from "@/components/ImportCsvModal";
 import LoadForm from "@/components/LoadForm";
+import GenerateSkusModal from "@/components/GenerateSkusModal";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { useLoads } from "@/hooks/useLoads";
 import { useCarriers, useCustomers } from "@/hooks/useTables";
 import { useUpdateLoad } from "@/hooks/useMutations";
+import { useSkus, useUpdateSku } from "@/hooks/useSkus";
 import { downloadBols } from "@/lib/bol";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
 import { LOAD_STATUSES, TRANSPORT_TYPES } from "@/lib/types";
-import type { LoadEnriched } from "@/lib/types";
+import type { LoadEnriched, Sku } from "@/lib/types";
 
 const money = (n: number | null) =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -69,6 +71,39 @@ const parseDate = (v: string): string | null => {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 };
 
+// Inline-editable SKU shown on a shipment row (newest first if several).
+function SkuCell({ skus, editable }: { skus: Sku[]; editable: boolean }) {
+  const update = useUpdateSku();
+  if (skus.length === 0) return <span className="text-slate-400">—</span>;
+  const [first, ...rest] = skus;
+  if (!editable) {
+    return (
+      <span className="font-mono text-xs">
+        {first.sku}
+        {rest.length > 0 && <span className="ml-1 text-slate-400">+{rest.length}</span>}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1 whitespace-nowrap">
+      <input
+        key={`${first.id}:${first.sku}`}
+        defaultValue={first.sku}
+        onBlur={(e) => {
+          const next = e.target.value.trim().toUpperCase();
+          if (next && next !== first.sku) update.mutate({ id: first.id, sku: next });
+          else e.target.value = first.sku;
+        }}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        disabled={update.isPending}
+        className="w-36 rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+        title="Edit SKU — saves on blur"
+      />
+      {rest.length > 0 && <span className="text-xs text-slate-400" title={rest.map((s) => s.sku).join(", ")}>+{rest.length}</span>}
+    </span>
+  );
+}
+
 export default function Shipments() {
   const { data, isLoading, error } = useLoads();
   const update = useUpdateLoad();
@@ -76,6 +111,8 @@ export default function Shipments() {
   const carriers = useCarriers();
   const { can } = useAuth();
   const canWrite = can("shipments");
+  const canSku = can("skus");
+  const skus = useSkus();
   const qc = useQueryClient();
   const [showImport, setShowImport] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -83,6 +120,19 @@ export default function Shipments() {
   const [statusFilter, setStatusFilter] = useState("active");
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [skuTargets, setSkuTargets] = useState<LoadEnriched[] | null>(null);
+
+  // SKUs grouped by shipment (newest first — useSkus orders by created_at desc).
+  const skusByLoad = useMemo(() => {
+    const m = new Map<number, Sku[]>();
+    for (const s of skus.data ?? []) {
+      if (s.load_id == null) continue;
+      const list = m.get(s.load_id);
+      if (list) list.push(s);
+      else m.set(s.load_id, [s]);
+    }
+    return m;
+  }, [skus.data]);
 
   const rows = useMemo(() => {
     let out = (data ?? []).filter((l) => (showArchived ? l.archived : !l.archived));
@@ -127,6 +177,7 @@ export default function Shipments() {
         destination: l.dest_city ? `${l.dest_city}, ${l.dest_state ?? ""}` : l.destination,
         miles: l.miles, transport_type: l.transport_type, equipment: l.equipment_type, commodity: l.commodity,
         qty: l.qty, freight_type: l.freight_type,
+        sku: l.id != null ? (skusByLoad.get(l.id) ?? []).map((s) => s.sku).join("; ") : "",
         weight_lbs: l.weight_lbs, rate_usd: l.rate_usd, carrier_pay_usd: l.carrier_pay_usd,
         margin_usd: l.margin_usd, bol_number: l.bol_number,
         pickup_at: l.pickup_at, delivery_at: l.delivery_at, age_days: ageDays(l),
@@ -178,6 +229,19 @@ export default function Shipments() {
             >
               Generate BOLs ({selected.size})
             </button>
+            {canSku && (
+              <button
+                onClick={() => {
+                  const chosen = (data ?? []).filter((l) => l.id != null && selected.has(l.id));
+                  if (chosen.length > 0) setSkuTargets(chosen);
+                }}
+                disabled={selected.size === 0}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                title="Generate a SKU for each selected shipment"
+              >
+                Generate SKUs ({selected.size})
+              </button>
+            )}
             {canWrite && (
               <button
                 onClick={() => setShowAdd(true)}
@@ -217,6 +281,11 @@ export default function Shipments() {
           { header: "Miles", cell: (r) => miles(r.miles), sort: (r) => r.miles },
           { header: "Carrier", cell: (r) => r.carrier_name ?? "—", sort: (r) => r.carrier_name },
           { header: "Transport", cell: (r) => r.transport_type ?? "—", sort: (r) => r.transport_type },
+          {
+            header: "SKU",
+            cell: (r) => <SkuCell skus={r.id != null ? (skusByLoad.get(r.id) ?? []) : []} editable={canSku} />,
+            sort: (r) => (r.id != null ? skusByLoad.get(r.id)?.[0]?.sku ?? null : null),
+          },
           { header: "Equipment", cell: (r) => r.equipment_type ?? "—", sort: (r) => r.equipment_type },
           { header: "Status", cell: (r) => <StatusSelect load={r} disabled={!canWrite} />, sort: (r) => r.status },
           { header: "Pickup", cell: (r) => fmtDateTime(r.pickup_at), sort: (r) => r.pickup_at },
@@ -275,6 +344,7 @@ export default function Shipments() {
       />
       {showAdd && <LoadForm load={null} onClose={() => setShowAdd(false)} />}
       {editing && <LoadForm load={editing} onClose={() => setEditing(null)} />}
+      {skuTargets && <GenerateSkusModal loads={skuTargets} onClose={() => setSkuTargets(null)} />}
       {showImport && (
         <ImportCsvModal
           title="Import shipments from CSV"

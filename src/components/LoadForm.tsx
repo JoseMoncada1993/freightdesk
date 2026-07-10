@@ -59,7 +59,7 @@ function partyFromAddress(c: Customer | undefined, a: CustomerAddress): Party {
 }
 
 function PartyFields({
-  title, party, set, customers, addresses, onFill,
+  title, party, set, customers, addresses, onFill, defaultCollapsed = false,
 }: {
   title: string;
   party: Party;
@@ -67,8 +67,10 @@ function PartyFields({
   customers: Customer[];
   addresses: CustomerAddress[];
   onFill: (p: Party) => void;
+  defaultCollapsed?: boolean;
 }) {
   const [fillId, setFillId] = useState("");
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   const applyFill = () => {
     if (fillId.startsWith("c:")) {
@@ -79,6 +81,30 @@ function PartyFields({
       if (a) onFill(partyFromAddress(customers.find((c) => c.id === a.customer_id), a));
     }
   };
+
+  // One-line summary shown while the section is collapsed.
+  const summary = [party.name, [party.city, party.state].filter(Boolean).join(", "), party.zip]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (collapsed) {
+    return (
+      <div className="rounded-lg border border-slate-200 p-4">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          className="flex w-full items-center justify-between text-left"
+          title="Expand"
+        >
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h3 className="shrink-0 text-sm font-semibold text-slate-700">{title}</h3>
+            <span className="truncate text-xs text-slate-500">{summary || "No details yet"}</span>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-blue-600">Expand ▼</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-slate-200 p-4 space-y-3">
@@ -109,6 +135,14 @@ function PartyFields({
             className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40"
           >
             Fill
+          </button>
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+            title="Collapse"
+          >
+            Collapse ▲
           </button>
         </div>
       </div>
@@ -294,8 +328,8 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
         </Field>
       </div>
 
-      <PartyFields title="Pickup (Ship From)" party={shipper} set={setShipper} customers={customerList} addresses={addressList} onFill={setShipper} />
-      <PartyFields title="Delivery (Ship To)" party={consignee} set={setConsignee} customers={customerList} addresses={addressList} onFill={setConsignee} />
+      <PartyFields title="Pickup (Ship From)" party={shipper} set={setShipper} customers={customerList} addresses={addressList} onFill={setShipper} defaultCollapsed={editing} />
+      <PartyFields title="Delivery (Ship To)" party={consignee} set={setConsignee} customers={customerList} addresses={addressList} onFill={setConsignee} defaultCollapsed={editing} />
 
       <div className="grid grid-cols-3 gap-3">
         <Field label="Transportation type">

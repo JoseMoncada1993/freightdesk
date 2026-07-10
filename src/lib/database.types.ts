@@ -803,6 +803,7 @@ export type Database = {
         Row: {
           archived: boolean
           created_at: string
+          export_fields: Json | null
           id: number
           load_id: number | null
           load_ref: string | null
@@ -816,6 +817,7 @@ export type Database = {
         Insert: {
           archived?: boolean
           created_at?: string
+          export_fields?: Json | null
           id?: never
           load_id?: number | null
           load_ref?: string | null
@@ -829,6 +831,7 @@ export type Database = {
         Update: {
           archived?: boolean
           created_at?: string
+          export_fields?: Json | null
           id?: never
           load_id?: number | null
           load_ref?: string | null

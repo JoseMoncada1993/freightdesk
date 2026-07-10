@@ -28,6 +28,18 @@ export function useAddSku() {
   });
 }
 
+// Bulk insert — used by the Shipments "Generate SKUs" flow.
+export function useAddSkus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (inputs: Database["public"]["Tables"]["skus"]["Insert"][]) => {
+      const { error } = await supabase.from("skus").insert(inputs);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
+  });
+}
+
 // Supplier → location/program/prefix reference used to auto-fill the generator.
 export function useSkuConventions() {
   return useQuery({
@@ -68,12 +80,15 @@ export function useDeleteSku() {
   });
 }
 
-// Archive / restore a generated SKU.
+// Update a generated SKU (archive/restore, edit the SKU value, export fields…).
 export function useUpdateSku() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, archived }: { id: number; archived: boolean }) => {
-      const { error } = await supabase.from("skus").update({ archived }).eq("id", id);
+    mutationFn: async ({
+      id,
+      ...patch
+    }: { id: number } & Omit<Database["public"]["Tables"]["skus"]["Update"], "id">) => {
+      const { error } = await supabase.from("skus").update(patch).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),

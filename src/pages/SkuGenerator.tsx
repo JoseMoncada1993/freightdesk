@@ -21,13 +21,35 @@ import {
 } from "@/hooks/useSkus";
 import { exportCsv } from "@/lib/csv";
 import { downloadXlsx } from "@/lib/xlsx";
-import { buildProductTemplateRows } from "@/lib/skuTemplate";
+import ExportFieldsEditor from "@/components/ExportFieldsEditor";
+import {
+  buildPrefix,
+  buildProductTemplateRows,
+  cleanLoad,
+  EDITABLE_TEMPLATE_HEADERS,
+} from "@/lib/skuTemplate";
 import type { Sku, SkuConvention } from "@/lib/types";
 
-const code = (v: string) => v.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 3);
-const buildPrefix = (supplier: string, location: string, program: string) =>
-  [supplier, location, program].map(code).filter(Boolean).join("-");
-const cleanLoad = (v: string) => v.replace(/[^a-zA-Z0-9-]/g, "").toUpperCase();
+// jsonb → editable string map for the export-fields editors.
+const fieldsFromJson = (v: unknown): Record<string, string> => {
+  const out: Record<string, string> = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (val != null) out[k] = String(val);
+    }
+  }
+  return out;
+};
+
+// Editable map → jsonb payload (drops blanks; null when nothing is set).
+const fieldsToJson = (v: Record<string, string>) => {
+  const out: Record<string, string> = {};
+  for (const h of EDITABLE_TEMPLATE_HEADERS) {
+    const val = (v[h] ?? "").trim();
+    if (val !== "") out[h] = val;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+};
 
 const fmtDate = (iso: string | null) => {
   if (!iso) return "—";
@@ -54,8 +76,13 @@ function ConventionFormModal({
   const [location, setLocation] = useState(existing?.location ?? "");
   const [program, setProgram] = useState(existing?.program ?? "");
   const [prefix, setPrefix] = useState(existing?.prefix ?? "");
+  const [exportFields, setExportFields] = useState<Record<string, string>>(() =>
+    fieldsFromJson(existing?.product_template),
+  );
+  const [showFields, setShowFields] = useState(false);
   const pending = add.isPending || update.isPending;
   const canSave = supplier.trim() !== "" && prefix.trim() !== "" && !pending;
+  const fieldsSet = Object.values(exportFields).filter((v) => v.trim() !== "").length;
 
   const submit = () => {
     if (!canSave) return;
@@ -64,6 +91,7 @@ function ConventionFormModal({
       location: location.trim() || null,
       program: program.trim() || null,
       prefix: prefix.trim().toUpperCase(),
+      product_template: fieldsToJson(exportFields),
     };
     const done = () => {
       onSaved?.({ supplier: payload.supplier, location: payload.location ?? "", program: payload.program ?? "", prefix: payload.prefix });
@@ -94,8 +122,64 @@ function ConventionFormModal({
             <input value={prefix} onChange={(e) => setPrefix(e.target.value.toUpperCase())} placeholder="WYFPRS" className={inputCls} />
           </Field>
         </div>
+        <div className="rounded-lg border border-slate-200 p-3">
+          <button
+            type="button"
+            onClick={() => setShowFields((v) => !v)}
+            className="flex w-full items-center justify-between text-sm font-medium text-slate-700"
+          >
+            <span>Export fields (product template)</span>
+            <span className="text-xs text-slate-400">
+              {fieldsSet} set · {showFields ? "hide ▲" : "edit ▼"}
+            </span>
+          </button>
+          {showFields && (
+            <div className="mt-3">
+              <p className="mb-2 text-xs text-slate-400">
+                Defaults exported for every SKU generated under this supplier. Individual SKUs can override them.
+              </p>
+              <ExportFieldsEditor values={exportFields} onChange={setExportFields} />
+            </div>
+          )}
+        </div>
       </div>
       <ErrorText error={add.error || update.error} />
+    </Modal>
+  );
+}
+
+// ---- Edit the export fields of a single generated SKU ---------------------
+function SkuExportFieldsModal({
+  sku,
+  convention,
+  onClose,
+}: {
+  sku: Sku;
+  convention: SkuConvention | undefined;
+  onClose: () => void;
+}) {
+  const update = useUpdateSku();
+  const [overrides, setOverrides] = useState<Record<string, string>>(() =>
+    fieldsFromJson(sku.export_fields),
+  );
+  const placeholders = fieldsFromJson(convention?.product_template);
+
+  const submit = () => {
+    update.mutate({ id: sku.id, export_fields: fieldsToJson(overrides) }, { onSuccess: onClose });
+  };
+
+  return (
+    <Modal
+      title={`Export fields — ${sku.sku}`}
+      onClose={onClose}
+      wide
+      footer={<ModalActions onCancel={onClose} onSubmit={submit} submitLabel="Save fields" pending={update.isPending} />}
+    >
+      <p className="text-xs text-slate-400">
+        Blank fields inherit the supplier convention default (shown in gray). Type a value to override it for this SKU only.
+      </p>
+      <ExportFieldsEditor values={overrides} onChange={setOverrides} placeholders={placeholders} />
+      <ErrorText error={update.error} />
     </Modal>
   );
 }
@@ -130,6 +214,7 @@ function ConventionsManagerModal({ onClose }: { onClose: () => void }) {
               <th className="px-3 py-2 font-medium">Location</th>
               <th className="px-3 py-2 font-medium">Program</th>
               <th className="px-3 py-2 font-medium">Prefix</th>
+              <th className="px-3 py-2 font-medium">Export fields</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -140,6 +225,9 @@ function ConventionsManagerModal({ onClose }: { onClose: () => void }) {
                 <td className="px-3 py-2">{c.location ?? "—"}</td>
                 <td className="px-3 py-2">{c.program ?? "—"}</td>
                 <td className="px-3 py-2 font-mono">{c.prefix}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">
+                  {Object.keys(fieldsFromJson(c.product_template)).length || "—"}
+                </td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-3">
                     <button onClick={() => setEditing(c)} className="text-blue-600 hover:underline text-xs font-medium">Edit</button>
@@ -154,7 +242,7 @@ function ConventionsManagerModal({ onClose }: { onClose: () => void }) {
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">No conventions match.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No conventions match.</td></tr>
             )}
           </tbody>
         </table>
@@ -183,6 +271,7 @@ export default function SkuGenerator() {
   const [notes, setNotes] = useState("");
   const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [showManage, setShowManage] = useState(false);
+  const [fieldsFor, setFieldsFor] = useState<Sku | null>(null);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -394,6 +483,13 @@ export default function SkuGenerator() {
               canWrite ? (
                 <div className="flex justify-end gap-3 whitespace-nowrap">
                   <button
+                    onClick={() => setFieldsFor(r)}
+                    className="text-blue-600 hover:underline text-xs font-medium"
+                    title="Edit this SKU's export fields"
+                  >
+                    Fields{Object.keys(fieldsFromJson(r.export_fields)).length > 0 ? "*" : ""}
+                  </button>
+                  <button
                     onClick={() => updateSku.mutate({ id: r.id, archived: !r.archived })}
                     className="text-slate-500 hover:underline text-xs font-medium"
                   >
@@ -419,6 +515,15 @@ export default function SkuGenerator() {
         />
       )}
       {showManage && <ConventionsManagerModal onClose={() => setShowManage(false)} />}
+      {fieldsFor && (
+        <SkuExportFieldsModal
+          sku={fieldsFor}
+          convention={convList.find(
+            (c) => c.supplier.toLowerCase() === (fieldsFor.supplier ?? "").toLowerCase(),
+          )}
+          onClose={() => setFieldsFor(null)}
+        />
+      )}
     </div>
   );
 }
