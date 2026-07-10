@@ -355,7 +355,8 @@ export default function SkuGenerator() {
     const aoa = exportRows();
     const [hdr, ...body] = aoa;
     const objs = body.map((r) => Object.fromEntries(hdr.map((h, i) => [String(h), r[i]])));
-    exportCsv(objs, "sku_products", hdr.map((h) => ({ key: String(h) })));
+    // No BOM — the receiving platform reads the header row byte-for-byte.
+    exportCsv(objs, "sku_products", hdr.map((h) => ({ key: String(h) })), { bom: false });
   };
   const exportXlsxTemplate = () => downloadXlsx(exportRows(), "sku_products", "Products");
 

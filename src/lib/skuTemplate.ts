@@ -11,7 +11,7 @@ export const PRODUCT_TEMPLATE_HEADERS = [
   "subpacking", "category_1", "category_2", "fob_state", "price_per_unit", "manifest_status",
   "peachtree_code", "peachtree_qty", "product_condition", "program", "store", "unit_type", "upc",
   "has_childs", "slug", "slug_es", "redirect", "price_highlight", "price_highlight_id",
-  "price_highlight_display", "fob_zip", "taxable", "make_an_offer", "supplier_cost",
+  "price_highlight_display", "fob_zip", "taxable", "supplier_cost",
   "supplier_cost_percent", "consignment_note", "product_group", "product_type", "restrict_price_change",
 ] as const;
 
