@@ -16,6 +16,9 @@ export type Sku = Database["public"]["Tables"]["skus"]["Row"];
 export type SkuConvention = Database["public"]["Tables"]["sku_conventions"]["Row"];
 export type SavedRoute = Database["public"]["Tables"]["routes"]["Row"];
 export type SamsPallet = Database["public"]["Tables"]["sams_pallets"]["Row"];
+export type Manifest = Database["public"]["Tables"]["manifests"]["Row"];
+export type ManifestMapping = Database["public"]["Tables"]["manifest_mappings"]["Row"];
+export type PricingRule = Database["public"]["Tables"]["pricing_rules"]["Row"];
 
 export const SAMS_STATUSES = ["Need to Schedule", "Pending", "Scheduled", "Delivered"] as const;
 export type SamsStatus = (typeof SAMS_STATUSES)[number];

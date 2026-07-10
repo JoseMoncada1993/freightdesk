@@ -14,6 +14,7 @@ import Tasks from "./pages/Tasks";
 import SkuGenerator from "./pages/SkuGenerator";
 import SamsClub from "./pages/SamsClub";
 import RouteOptimizer from "./pages/RouteOptimizer";
+import ManifestImport from "./pages/ManifestImport";
 import Team from "./pages/Team";
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="documents" element={<Documents />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="skus" element={<SkuGenerator />} />
+        <Route path="manifests" element={<ManifestImport />} />
         <Route path="sams" element={<SamsClub />} />
         <Route path="routes" element={<RouteOptimizer />} />
         {isAdmin && <Route path="team" element={<Team />} />}

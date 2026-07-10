@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       carriers: {
         Row: {
           active: boolean
@@ -669,6 +687,122 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      manifest_mappings: {
+        Row: {
+          created_at: string
+          id: number
+          mapping: Json
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          mapping: Json
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          mapping?: Json
+          name?: string
+        }
+        Relationships: []
+      }
+      manifests: {
+        Row: {
+          created_at: string
+          ext_price: number | null
+          ext_retail: number | null
+          file_name: string | null
+          id: number
+          item_count: number | null
+          mapping: Json | null
+          notes: string | null
+          price_pct: number | null
+          rows: Json
+          sku_id: number | null
+          source: string
+          source_ref: string | null
+          status: string
+          total_qty: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ext_price?: number | null
+          ext_retail?: number | null
+          file_name?: string | null
+          id?: never
+          item_count?: number | null
+          mapping?: Json | null
+          notes?: string | null
+          price_pct?: number | null
+          rows?: Json
+          sku_id?: number | null
+          source?: string
+          source_ref?: string | null
+          status?: string
+          total_qty?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ext_price?: number | null
+          ext_retail?: number | null
+          file_name?: string | null
+          id?: never
+          item_count?: number | null
+          mapping?: Json | null
+          notes?: string | null
+          price_pct?: number | null
+          rows?: Json
+          sku_id?: number | null
+          source?: string
+          source_ref?: string | null
+          status?: string
+          total_qty?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manifests_sku_id_fkey"
+            columns: ["sku_id"]
+            isOneToOne: false
+            referencedRelation: "skus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_rules: {
+        Row: {
+          created_at: string
+          id: number
+          location: string | null
+          notes: string | null
+          pct: number
+          program: string | null
+          supplier: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          location?: string | null
+          notes?: string | null
+          pct: number
+          program?: string | null
+          supplier: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          location?: string | null
+          notes?: string | null
+          pct?: number
+          program?: string | null
+          supplier?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
