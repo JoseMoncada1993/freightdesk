@@ -15,6 +15,9 @@ import SkuGenerator from "./pages/SkuGenerator";
 import SamsClub from "./pages/SamsClub";
 import RouteOptimizer from "./pages/RouteOptimizer";
 import ManifestImport from "./pages/ManifestImport";
+import Forms from "./pages/Forms";
+import PublicForm from "./pages/PublicForm";
+import EmailLog from "./pages/EmailLog";
 import Team from "./pages/Team";
 
 export default function App() {
@@ -28,10 +31,19 @@ export default function App() {
     );
   }
 
-  if (!session) return <Login />;
+  // /f/:slug is the public form fill page — reachable without signing in.
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="f/:slug" element={<PublicForm />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
+  }
 
   return (
     <Routes>
+      <Route path="f/:slug" element={<PublicForm />} />
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="shipments" element={<Shipments />} />
@@ -46,6 +58,8 @@ export default function App() {
         <Route path="manifests" element={<ManifestImport />} />
         <Route path="sams" element={<SamsClub />} />
         <Route path="routes" element={<RouteOptimizer />} />
+        <Route path="forms" element={<Forms />} />
+        <Route path="emails" element={<EmailLog />} />
         {isAdmin && <Route path="team" element={<Team />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

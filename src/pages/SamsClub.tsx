@@ -33,6 +33,28 @@ const fmtDate = (v: string | null) => {
   return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString();
 };
 
+// Days since the pallet was first logged — how long it has been pending.
+const ageDays = (createdAt: string | null): number | null => {
+  if (!createdAt) return null;
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86_400_000));
+};
+
+function AgeBadge({ pallet }: { pallet: SamsPallet }) {
+  const days = ageDays(pallet.created_at);
+  if (days == null) return <span className="text-slate-400">—</span>;
+  const delivered = pallet.status === "Delivered";
+  const cls = delivered
+    ? "text-slate-400"
+    : days >= 14
+      ? "text-red-600 font-semibold"
+      : days >= 7
+        ? "text-amber-600 font-medium"
+        : "text-slate-600";
+  return <span className={`text-xs tabular-nums ${cls}`} title={fmtDate(pallet.created_at)}>{days}d</span>;
+}
+
 // Accept common date strings from Excel/Sheets → ISO date (YYYY-MM-DD) or null.
 const parseDate = (v: string): string | null => {
   if (!v.trim()) return null;
@@ -93,6 +115,20 @@ function InlineNotes({ pallet }: { pallet: SamsPallet }) {
       placeholder="—"
       className="w-full min-w-[9rem] rounded-md border border-transparent bg-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
+  );
+}
+
+function ArchiveButton({ pallet }: { pallet: SamsPallet }) {
+  const update = useUpdateSamsPallet();
+  return (
+    <button
+      onClick={() => update.mutate({ id: pallet.id, archived: !pallet.archived })}
+      disabled={update.isPending}
+      className="whitespace-nowrap text-xs font-medium text-slate-500 hover:underline disabled:opacity-50"
+      title={pallet.archived ? "Move back to the active board" : "Archive this pallet (e.g. after delivery)"}
+    >
+      {pallet.archived ? "Unarchive" : "Archive"}
+    </button>
   );
 }
 
@@ -173,6 +209,7 @@ export default function SamsClub() {
 
   const [statusFilter, setStatusFilter] = useState("");
   const [clubFilter, setClubFilter] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [palletSearch, setPalletSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>("Scheduled");
@@ -196,6 +233,7 @@ export default function SamsClub() {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
+      if (showArchived ? !r.archived : r.archived) return false;
       if (statusFilter === BLANK ? r.status != null && r.status !== "" : statusFilter && r.status !== statusFilter) return false;
       if (clubFilter && r.club !== clubFilter) return false;
       if (searchSet.size > 0) {
@@ -205,7 +243,7 @@ export default function SamsClub() {
       }
       return true;
     });
-  }, [rows, statusFilter, clubFilter, searchSet]);
+  }, [rows, statusFilter, clubFilter, showArchived, searchSet]);
 
   const statusCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -244,12 +282,18 @@ export default function SamsClub() {
     if (ids.length === 0) return;
     bulkUpdate.mutate({ ids, patch: { notes: bulkNotes.trim() || null } }, { onSuccess: () => setBulkNotes("") });
   };
+  const applyArchive = (archived: boolean) => {
+    const ids = selectedIds();
+    if (ids.length === 0) return;
+    bulkUpdate.mutate({ ids, patch: { archived } }, { onSuccess: () => setSelected(new Set()) });
+  };
 
   const doExport = () =>
     exportCsv(
       filtered.map((r) => ({
         sku: r.sku, pallet_id: r.pallet_id, club: r.club, status: r.status,
         delivery_date: r.delivery_date, notes: r.notes,
+        age_days: ageDays(r.created_at), archived: r.archived ? "yes" : "",
       })),
       "sams_club_pallets",
     );
@@ -318,6 +362,15 @@ export default function SamsClub() {
                 Clear
               </button>
             )}
+            <label className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => { setShowArchived(e.target.checked); setSelected(new Set()); }}
+                className="rounded border-slate-300"
+              />
+              Archived
+            </label>
           </div>
         </div>
       </div>
@@ -373,6 +426,19 @@ export default function SamsClub() {
                 Apply
               </button>
             </div>
+            <div className="flex items-center gap-2">
+              {showArchived ? (
+                <button onClick={() => applyArchive(false)} disabled={bulkUpdate.isPending}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                  Unarchive selected
+                </button>
+              ) : (
+                <button onClick={() => applyArchive(true)} disabled={bulkUpdate.isPending}
+                  className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+                  Archive selected
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -414,6 +480,15 @@ export default function SamsClub() {
             header: "Notes / Tracking #",
             cell: (r) => (canWrite ? <InlineNotes key={r.notes ?? ""} pallet={r} /> : (r.notes ?? "—")),
             sort: (r) => r.notes,
+          },
+          {
+            header: "Age",
+            cell: (r) => <AgeBadge pallet={r} />,
+            sort: (r) => r.created_at,
+          },
+          {
+            header: "",
+            cell: (r) => (canWrite ? <ArchiveButton pallet={r} /> : null),
           },
         ]}
       />

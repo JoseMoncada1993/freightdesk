@@ -95,6 +95,42 @@ export function useUpdateSku() {
   });
 }
 
+// Bulk-apply the same patch (archive/restore, supplier, notes…) to many SKUs.
+export function useBulkUpdateSkus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      ids,
+      patch,
+    }: {
+      ids: number[];
+      patch: Omit<Database["public"]["Tables"]["skus"]["Update"], "id">;
+    }) => {
+      const { error } = await supabase.from("skus").update(patch).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
+  });
+}
+
+// Bulk per-row patches (each SKU gets its own values — e.g. merged export
+// fields). Runs the updates in parallel.
+export function useBulkPatchSkus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      patches: { id: number; patch: Omit<Database["public"]["Tables"]["skus"]["Update"], "id"> }[],
+    ) => {
+      const results = await Promise.all(
+        patches.map(({ id, patch }) => supabase.from("skus").update(patch).eq("id", id)),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
+  });
+}
+
 export function useUpdateSkuConvention() {
   const qc = useQueryClient();
   return useMutation({

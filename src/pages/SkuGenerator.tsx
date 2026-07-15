@@ -14,6 +14,8 @@ import {
   useAddSku,
   useDeleteSku,
   useUpdateSku,
+  useBulkUpdateSkus,
+  useBulkPatchSkus,
   useSkuConventions,
   useAddSkuConvention,
   useUpdateSkuConvention,
@@ -184,6 +186,83 @@ function SkuExportFieldsModal({
   );
 }
 
+// ---- Bulk edit shared fields on the selected SKUs --------------------------
+function BulkUpdateModal({ ids, onClose }: { ids: number[]; onClose: () => void }) {
+  const bulk = useBulkUpdateSkus();
+  const [supplier, setSupplier] = useState("");
+  const [location, setLocation] = useState("");
+  const [program, setProgram] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const patch: Record<string, string> = {};
+  if (supplier.trim()) patch.supplier = supplier.trim();
+  if (location.trim()) patch.location = location.trim();
+  if (program.trim()) patch.program = program.trim();
+  if (notes.trim()) patch.notes = notes.trim();
+  const canSave = Object.keys(patch).length > 0 && !bulk.isPending;
+
+  return (
+    <Modal
+      title={`Update ${ids.length} SKU${ids.length === 1 ? "" : "s"}`}
+      onClose={onClose}
+      footer={
+        <ModalActions onCancel={onClose} onSubmit={() => bulk.mutate({ ids, patch }, { onSuccess: onClose })}
+          submitLabel={`Apply to ${ids.length}`} pending={bulk.isPending} disabled={!canSave} />
+      }
+    >
+      <p className="text-xs text-slate-400">
+        Only the fields you fill in are changed — blank fields keep each SKU&apos;s current value.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Supplier"><input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="(keep)" className={inputCls} /></Field>
+        <Field label="Location"><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="(keep)" className={inputCls} /></Field>
+        <Field label="Program"><input value={program} onChange={(e) => setProgram(e.target.value)} placeholder="(keep)" className={inputCls} /></Field>
+        <Field label="Notes"><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="(keep)" className={inputCls} /></Field>
+      </div>
+      <ErrorText error={bulk.error} />
+    </Modal>
+  );
+}
+
+// ---- Bulk edit export fields on the selected SKUs ---------------------------
+function BulkExportFieldsModal({ skus, onClose }: { skus: Sku[]; onClose: () => void }) {
+  const bulk = useBulkPatchSkus();
+  const [values, setValues] = useState<Record<string, string>>({});
+
+  const submit = () => {
+    // Merge the entered values over each SKU's existing overrides; blanks
+    // leave that SKU's current override for the field untouched.
+    const entered: Record<string, string> = {};
+    for (const [k, v] of Object.entries(values)) if (v.trim() !== "") entered[k] = v.trim();
+    const patches = skus.map((s) => {
+      const merged = { ...fieldsFromJson(s.export_fields), ...entered };
+      return { id: s.id, patch: { export_fields: fieldsToJson(merged) } };
+    });
+    bulk.mutate(patches, { onSuccess: onClose });
+  };
+
+  const enteredCount = Object.values(values).filter((v) => v.trim() !== "").length;
+
+  return (
+    <Modal
+      title={`Export fields — ${skus.length} SKU${skus.length === 1 ? "" : "s"}`}
+      onClose={onClose}
+      wide
+      footer={
+        <ModalActions onCancel={onClose} onSubmit={submit} submitLabel={`Apply to ${skus.length}`}
+          pending={bulk.isPending} disabled={enteredCount === 0 || bulk.isPending} />
+      }
+    >
+      <p className="text-xs text-slate-400">
+        Values you type here are applied to every selected SKU (merged over each SKU&apos;s existing overrides).
+        Blank fields are left unchanged.
+      </p>
+      <ExportFieldsEditor values={values} onChange={setValues} />
+      <ErrorText error={bulk.error} />
+    </Modal>
+  );
+}
+
 // ---- Manage conventions (list + edit + delete) ----------------------------
 function ConventionsManagerModal({ onClose }: { onClose: () => void }) {
   const { data: conventions } = useSkuConventions();
@@ -274,6 +353,9 @@ export default function SkuGenerator() {
   const [fieldsFor, setFieldsFor] = useState<Sku | null>(null);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"update" | "fields" | null>(null);
+  const bulkUpdate = useBulkUpdateSkus();
 
   const convList = useMemo(() => conventions ?? [], [conventions]);
 
@@ -361,6 +443,23 @@ export default function SkuGenerator() {
   const exportXlsxTemplate = () => downloadXlsx(exportRows(), "sku_products", "Products");
 
   const refById = new Map((loads.data ?? []).map((l) => [l.id, l.ref]));
+
+  // ---- Multi-select + bulk actions ----------------------------------------
+  const toggleSelected = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const allVisibleSelected = visibleSkus.length > 0 && visibleSkus.every((s) => selected.has(s.id));
+  const toggleAllSelected = () =>
+    setSelected(allVisibleSelected ? new Set() : new Set(visibleSkus.map((s) => s.id)));
+  const selectedSkus = visibleSkus.filter((s) => selected.has(s.id));
+  const bulkArchive = (archived: boolean) =>
+    bulkUpdate.mutate(
+      { ids: [...selected], patch: { archived } },
+      { onSuccess: () => setSelected(new Set()) },
+    );
 
   return (
     <div>
@@ -454,11 +553,40 @@ export default function SkuGenerator() {
           className="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <label className="flex items-center gap-2 text-sm text-slate-500">
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="rounded border-slate-300" />
+          <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setSelected(new Set()); }} className="rounded border-slate-300" />
           Archived
         </label>
         <span className="text-xs text-slate-400">{visibleSkus.length} SKU{visibleSkus.length === 1 ? "" : "s"}</span>
       </div>
+
+      {/* Bulk action bar — update fields, export fields, archive/restore the selected SKUs */}
+      {canWrite && selected.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <span className="text-sm font-medium text-blue-900">{selected.size} selected:</span>
+          <button onClick={() => setBulkAction("update")}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            Update fields
+          </button>
+          <button onClick={() => setBulkAction("fields")}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+            Export fields
+          </button>
+          {showArchived ? (
+            <button onClick={() => bulkArchive(false)} disabled={bulkUpdate.isPending}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+              Restore
+            </button>
+          ) : (
+            <button onClick={() => bulkArchive(true)} disabled={bulkUpdate.isPending}
+              className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+              Archive
+            </button>
+          )}
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-sm font-medium text-slate-500 hover:underline">
+            Clear selection
+          </button>
+        </div>
+      )}
 
       <DataTable<Sku>
         rows={visibleSkus}
@@ -467,6 +595,13 @@ export default function SkuGenerator() {
         rowKey={(r) => r.id}
         empty={showArchived ? "No archived SKUs." : "No SKUs generated yet."}
         columns={[
+          {
+            header: canWrite ? "" : " ",
+            cell: (r) =>
+              canWrite ? (
+                <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelected(r.id)} className="rounded border-slate-300" />
+              ) : null,
+          },
           { header: "SKU", cell: (r) => <span className="font-mono font-medium">{r.sku}</span>, sort: (r) => r.sku },
           { header: "Prefix", cell: (r) => <span className="font-mono">{r.prefix}</span>, sort: (r) => r.prefix },
           { header: "Supplier", cell: (r) => r.supplier ?? "—", sort: (r) => r.supplier },
@@ -507,6 +642,19 @@ export default function SkuGenerator() {
           },
         ]}
       />
+
+      {canWrite && visibleSkus.length > 0 && (
+        <button onClick={toggleAllSelected} className="mt-3 text-xs font-medium text-blue-600 hover:underline">
+          {allVisibleSelected ? "Clear selection" : `Select all ${visibleSkus.length} shown`}
+        </button>
+      )}
+
+      {bulkAction === "update" && (
+        <BulkUpdateModal ids={selectedSkus.map((s) => s.id)} onClose={() => setBulkAction(null)} />
+      )}
+      {bulkAction === "fields" && (
+        <BulkExportFieldsModal skus={selectedSkus} onClose={() => setBulkAction(null)} />
+      )}
 
       {showAddSupplier && (
         <ConventionFormModal

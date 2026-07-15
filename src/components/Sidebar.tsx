@@ -12,6 +12,8 @@ const links = [
   { to: "/sams", label: "Sam's Club" },
   { to: "/skus", label: "SKU Generator" },
   { to: "/manifests", label: "Manifest Import" },
+  { to: "/forms", label: "Forms" },
+  { to: "/emails", label: "Email Data Log" },
   { to: "/customers", label: "Customers" },
   { to: "/carriers", label: "Carriers" },
   { to: "/documents", label: "Documents" },

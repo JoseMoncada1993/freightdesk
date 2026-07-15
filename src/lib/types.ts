@@ -19,6 +19,31 @@ export type SamsPallet = Database["public"]["Tables"]["sams_pallets"]["Row"];
 export type Manifest = Database["public"]["Tables"]["manifests"]["Row"];
 export type ManifestMapping = Database["public"]["Tables"]["manifest_mappings"]["Row"];
 export type PricingRule = Database["public"]["Tables"]["pricing_rules"]["Row"];
+export type FormTemplate = Database["public"]["Tables"]["form_templates"]["Row"];
+export type FormResponse = Database["public"]["Tables"]["form_responses"]["Row"];
+export type EmailRule = Database["public"]["Tables"]["email_rules"]["Row"];
+export type EmailLog = Database["public"]["Tables"]["email_logs"]["Row"];
+
+// Field definition stored in form_templates.fields (jsonb array).
+export interface FormFieldDef {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "number" | "date" | "select" | "email" | "phone" | "checkbox";
+  required?: boolean;
+  options?: string[];
+}
+
+export const FORM_FIELD_TYPES: FormFieldDef["type"][] = [
+  "text", "textarea", "number", "date", "select", "email", "phone", "checkbox",
+];
+
+// Field definition stored in email_rules.fields (jsonb array). pattern is an
+// optional regex (first capture group = value); default is label-based lookup.
+export interface EmailFieldDef {
+  key: string;
+  label: string;
+  pattern?: string;
+}
 
 export const SAMS_STATUSES = ["Need to Schedule", "Pending", "Scheduled", "Delivered"] as const;
 export type SamsStatus = (typeof SAMS_STATUSES)[number];

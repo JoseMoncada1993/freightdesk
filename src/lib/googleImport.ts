@@ -135,6 +135,96 @@ export async function gmailSearchAttachments(
   return out;
 }
 
+// ---- Full messages (Email Data Log module) ----------------------------------
+
+export interface GmailMessage {
+  id: string;
+  subject: string;
+  from: string;
+  date: string;      // RFC 2822 header date
+  body: string;      // plain text (text/plain part, or text/html stripped)
+}
+
+const b64decode = (data: string): string => {
+  const b64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(bytes);
+};
+
+const stripHtml = (html: string): string =>
+  html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table)>/gi, "\n")
+    .replace(/<\/t[dh]>/gi, "\t")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s+/g, "\n")
+    .trim();
+
+interface GmailBodyPart {
+  mimeType?: string;
+  filename?: string;
+  body?: { data?: string; attachmentId?: string };
+  parts?: GmailBodyPart[];
+}
+
+const extractBody = (payload?: GmailBodyPart): string => {
+  if (!payload) return "";
+  let plain = "";
+  let html = "";
+  const walk = (p: GmailBodyPart) => {
+    if (p.body?.data) {
+      if (p.mimeType === "text/plain" && !plain) plain = b64decode(p.body.data);
+      else if (p.mimeType === "text/html" && !html) html = b64decode(p.body.data);
+    }
+    p.parts?.forEach(walk);
+  };
+  walk(payload);
+  return plain || (html ? stripHtml(html) : "");
+};
+
+/** Search Gmail and return full messages (headers + decoded text body). */
+export async function gmailSearchMessages(
+  token: string,
+  opts: { query: string; from?: string; days?: number; max?: number },
+): Promise<GmailMessage[]> {
+  const terms = [opts.query.trim()].filter(Boolean);
+  if (opts.from?.trim()) terms.push(`from:${opts.from.trim()}`);
+  if (opts.days) terms.push(`newer_than:${opts.days}d`);
+  const q = encodeURIComponent(terms.join(" "));
+
+  const list = await gapi<{ messages?: { id: string }[] }>(
+    token,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=${opts.max ?? 50}`,
+  );
+  const out: GmailMessage[] = [];
+  for (const m of list.messages ?? []) {
+    const msg = await gapi<{
+      payload?: GmailBodyPart & { headers?: { name: string; value: string }[] };
+    }>(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`);
+    const headers = msg.payload?.headers ?? [];
+    const h = (name: string) => headers.find((x) => x.name.toLowerCase() === name)?.value ?? "";
+    out.push({
+      id: m.id,
+      subject: h("subject"),
+      from: h("from"),
+      date: h("date"),
+      body: extractBody(msg.payload),
+    });
+  }
+  return out;
+}
+
 export async function gmailDownloadAttachment(
   token: string,
   messageId: string,

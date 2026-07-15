@@ -331,6 +331,151 @@ export type Database = {
           },
         ]
       }
+      email_logs: {
+        Row: {
+          created_at: string
+          data: Json
+          from_addr: string | null
+          gmail_message_id: string
+          id: number
+          received_at: string | null
+          rule_id: number | null
+          subject: string | null
+          supplier: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          from_addr?: string | null
+          gmail_message_id: string
+          id?: never
+          received_at?: string | null
+          rule_id?: number | null
+          subject?: string | null
+          supplier?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          from_addr?: string | null
+          gmail_message_id?: string
+          id?: never
+          received_at?: string | null
+          rule_id?: number | null
+          subject?: string | null
+          supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "email_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          fields: Json
+          from_filter: string | null
+          gmail_query: string
+          id: number
+          name: string
+          supplier: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          fields?: Json
+          from_filter?: string | null
+          gmail_query: string
+          id?: never
+          name: string
+          supplier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          fields?: Json
+          from_filter?: string | null
+          gmail_query?: string
+          id?: never
+          name?: string
+          supplier?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      form_responses: {
+        Row: {
+          created_at: string
+          data: Json
+          form_id: number
+          id: number
+          submitted_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          form_id: number
+          id?: never
+          submitted_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          form_id?: number
+          id?: never
+          submitted_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          fields: Json
+          id: number
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: never
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          fields?: Json
+          id?: never
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           active: boolean
@@ -869,6 +1014,7 @@ export type Database = {
       }
       sams_pallets: {
         Row: {
+          archived: boolean
           club: string | null
           created_at: string
           delivery_date: string | null
@@ -880,6 +1026,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean
           club?: string | null
           created_at?: string
           delivery_date?: string | null
@@ -891,6 +1038,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean
           club?: string | null
           created_at?: string
           delivery_date?: string | null
