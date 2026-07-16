@@ -227,7 +227,21 @@ function BulkUpdateModal({ ids, onClose }: { ids: number[]; onClose: () => void 
 // ---- Bulk edit export fields on the selected SKUs ---------------------------
 function BulkExportFieldsModal({ skus, onClose }: { skus: Sku[]; onClose: () => void }) {
   const bulk = useBulkPatchSkus();
+  const { data: conventions } = useSkuConventions();
   const [values, setValues] = useState<Record<string, string>>({});
+  const [fillSupplier, setFillSupplier] = useState("");
+
+  // Typing/picking a supplier auto-populates the grid with that convention's
+  // export-field template — no need to enter the fields one at a time.
+  const applySupplier = (name: string) => {
+    setFillSupplier(name);
+    const conv = (conventions ?? []).find(
+      (c) => c.supplier.toLowerCase() === name.trim().toLowerCase(),
+    );
+    if (conv?.product_template) {
+      setValues((prev) => ({ ...prev, ...fieldsFromJson(conv.product_template) }));
+    }
+  };
 
   const submit = () => {
     // Merge the entered values over each SKU's existing overrides; blanks
@@ -257,6 +271,18 @@ function BulkExportFieldsModal({ skus, onClose }: { skus: Sku[]; onClose: () => 
         Values you type here are applied to every selected SKU (merged over each SKU&apos;s existing overrides).
         Blank fields are left unchanged.
       </p>
+      <Field label="Auto-populate from supplier convention">
+        <input
+          value={fillSupplier}
+          onChange={(e) => applySupplier(e.target.value)}
+          list="bulk-fill-suppliers"
+          placeholder="Start typing a supplier to fill the fields below…"
+          className={inputCls}
+        />
+        <datalist id="bulk-fill-suppliers">
+          {(conventions ?? []).map((c) => <option key={c.id} value={c.supplier} />)}
+        </datalist>
+      </Field>
       <ExportFieldsEditor values={values} onChange={setValues} />
       <ErrorText error={bulk.error} />
     </Modal>
