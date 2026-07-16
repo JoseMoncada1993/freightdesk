@@ -21,8 +21,9 @@ export function useAddSku() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: Database["public"]["Tables"]["skus"]["Insert"]) => {
-      const { error } = await supabase.from("skus").insert(input);
+      const { data, error } = await supabase.from("skus").insert(input).select("id").single();
       if (error) throw error;
+      return data.id;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skus"] }),
   });

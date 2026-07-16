@@ -105,6 +105,14 @@ export function normalizeManifest(
     });
     if (Object.keys(row).length === 0) continue;
 
+    // "Appx. Unit Retail" only ever holds a number — values with other
+    // characters ("N/A", "call for price") are dropped, not imported.
+    if (row["Appx. Unit Retail"] != null) {
+      const clean = num(row["Appx. Unit Retail"]);
+      if (clean == null) delete row["Appx. Unit Retail"];
+      else row["Appx. Unit Retail"] = String(clean);
+    }
+
     const qty = num(row["Quantity"]) ?? 1;
     const unitRetail = num(row["Appx. Unit Retail"]);
     let ext = num(row["Appx. EXT Retail"]);
@@ -192,17 +200,68 @@ export function buildManifestExportRows(
     const qty = num(row["Quantity"]) ?? 1;
     const ext = num(row["Appx. EXT Retail"]);
     const extPrice = pct != null && ext != null ? Math.round(ext * (pct / 100) * 100) / 100 : null;
-    const unitPrice = extPrice != null && qty > 0 ? Math.round((extPrice / qty) * 100) / 100 : null;
+    const unitPrice = extPrice != null && extPrice !== 0 && qty > 0 ? Math.round((extPrice / qty) * 100) / 100 : null;
+    // A row with no (or zero) EXT price gets no Price % either.
+    const rowPct = extPrice != null && extPrice !== 0 ? pct : null;
     out.push(
       MANIFEST_HEADERS.map((h): string | number | null => {
         if (h === "SKU") return skuLabel;
         if (h === "Store") return store;
-        if (h === "Your Price %") return pct ?? "";
-        if (h === "Your EXT Price") return extPrice ?? "";
+        if (h === "Your Price %") return rowPct ?? "";
+        if (h === "Your EXT Price") return extPrice != null && extPrice !== 0 ? extPrice : "";
         if (h === "Your Unit Price $") return unitPrice ?? "";
+        if (h === "Appx. Unit Retail") return num(row[h]) ?? "";
         return row[h] ?? "";
       }),
     );
+  }
+  return out;
+}
+
+// ---- SKU Generator hand-off ---------------------------------------------------
+
+/** Column sums for a stored manifest (Your EXT Price derived from price %). */
+export function manifestSums(manifest: Manifest): { qty: number; extRetail: number; extPrice: number } {
+  const rows = Array.isArray(manifest.rows) ? (manifest.rows as Record<string, string>[]) : [];
+  const pct = manifest.price_pct;
+  let qty = 0;
+  let extRetail = 0;
+  let extPrice = 0;
+  for (const row of rows) {
+    qty += num(row["Quantity"]) ?? 1;
+    const ext = num(row["Appx. EXT Retail"]) ?? 0;
+    extRetail += ext;
+    if (pct != null) extPrice += Math.round(ext * (pct / 100) * 100) / 100;
+  }
+  return {
+    qty,
+    extRetail: Math.round(extRetail * 100) / 100,
+    extPrice: Math.round(extPrice * 100) / 100,
+  };
+}
+
+const r2 = (n: number) => String(Math.round(n * 100) / 100);
+
+/**
+ * Product-template export fields derived from a manifest, used to update or
+ * create the load's SKU on the SKU Generator dashboard:
+ * qty=ΣQuantity, retail_price=ΣEXT retail, retail_price_per_unit=retail/qty,
+ * price=ΣYour EXT Price, price_per_unit=price/qty,
+ * price_highlight=price/retail×100 (2dp), price_highlight_id="% of Retail".
+ */
+export function skuFieldsFromManifest(manifest: Manifest): Record<string, string> {
+  const { qty, extRetail, extPrice } = manifestSums(manifest);
+  const out: Record<string, string> = {};
+  if (qty > 0) out.qty = r2(qty);
+  if (extRetail > 0) out.retail_price = r2(extRetail);
+  if (extRetail > 0 && qty > 0) out.retail_price_per_unit = r2(extRetail / qty);
+  if (extPrice > 0) {
+    out.price = r2(extPrice);
+    if (qty > 0) out.price_per_unit = r2(extPrice / qty);
+    if (extRetail > 0) {
+      out.price_highlight = r2((extPrice / extRetail) * 100);
+      out.price_highlight_id = "% of Retail";
+    }
   }
   return out;
 }

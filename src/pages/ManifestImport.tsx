@@ -7,7 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import DataTable from "@/components/DataTable";
 import Modal, { Field, ModalActions, inputCls, ErrorText } from "@/components/ui/Modal";
 import { useAuth } from "@/lib/AuthContext";
-import { useSkus, useSkuConventions, useUpdateSku } from "@/hooks/useSkus";
+import { useSkus, useSkuConventions, useUpdateSku, useAddSku } from "@/hooks/useSkus";
 import {
   useManifests, useAddManifest, useUpdateManifest, useDeleteManifest,
   useManifestMappings, useSaveManifestMapping,
@@ -18,6 +18,7 @@ import { parseManifestFile, guessHeaderRow } from "@/lib/manifestParse";
 import {
   MANIFEST_HEADERS, MAPPABLE_HEADERS, guessMapping, normalizeManifest,
   autoPricePct, buildManifestExportRows, fileBaseName, conventionStore,
+  skuFieldsFromManifest,
 } from "@/lib/manifestTemplate";
 import {
   getGoogleToken, gmailSearchAttachments, gmailDownloadAttachment,
@@ -463,6 +464,7 @@ export default function ManifestImport() {
   const { data: conventions } = useSkuConventions();
   const updateManifest = useUpdateManifest();
   const updateSku = useUpdateSku();
+  const addSku = useAddSku();
   const delManifest = useDeleteManifest();
   const { data: clientId } = useAppSetting("google_client_id");
 
@@ -474,6 +476,8 @@ export default function ManifestImport() {
   const [showSettings, setShowSettings] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkPct, setBulkPct] = useState("");
+  const [bulkStore, setBulkStore] = useState("");
+  const [bulkMsg, setBulkMsg] = useState("");
 
   // Gmail search state
   const [gFrom, setGFrom] = useState("");
@@ -630,6 +634,69 @@ export default function ManifestImport() {
       repriceManifest(m, bulkPct);
     }
     setBulkPct("");
+  };
+
+  const applyBulkStore = () => {
+    const v = bulkStore.trim();
+    for (const m of (manifests ?? []).filter((x) => selected.has(x.id))) {
+      updateManifest.mutate({ id: m.id, store: v || null });
+    }
+    setBulkStore("");
+  };
+
+  const deleteSelected = () => {
+    const chosen = (manifests ?? []).filter((m) => selected.has(m.id));
+    if (chosen.length === 0) return;
+    if (!confirm(`Delete ${chosen.length} manifest${chosen.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    for (const m of chosen) delManifest.mutate(m.id);
+    setSelected(new Set());
+  };
+
+  // Push selected manifests onto the SKU Generator dashboard: update the
+  // matching SKU's export fields (qty / retail / price / price_highlight…) or
+  // create a new SKU named after the file when none exists yet.
+  const addToSkuGenerator = async () => {
+    const chosen = (manifests ?? []).filter((m) => selected.has(m.id));
+    if (chosen.length === 0) return;
+    setBulkMsg("");
+    let updated = 0;
+    let created = 0;
+    let skipped = 0;
+    for (const m of chosen) {
+      const fields = skuFieldsFromManifest(m);
+      if (Object.keys(fields).length === 0) { skipped++; continue; }
+      const base = fileBaseName(m.file_name);
+      const target =
+        (m.sku_id != null ? skuById.get(m.sku_id) : undefined) ??
+        (base ? (skus ?? []).find((s) => s.sku.toLowerCase() === base.toLowerCase()) : undefined);
+      try {
+        if (target) {
+          const merged = { ...((target.export_fields as Record<string, unknown>) ?? {}), ...fields };
+          await updateSku.mutateAsync({ id: target.id, export_fields: merged as never });
+          if (m.sku_id !== target.id) updateManifest.mutate({ id: m.id, sku_id: target.id });
+          updated++;
+        } else if (base) {
+          const split = base.match(/^(.*?)(\d+)$/);
+          const newId = await addSku.mutateAsync({
+            sku: base.toUpperCase(),
+            prefix: (split?.[1] || base).toUpperCase(),
+            load_ref: split?.[2] ?? null,
+            export_fields: fields as never,
+          });
+          updateManifest.mutate({ id: m.id, sku_id: newId as number });
+          created++;
+        } else {
+          skipped++;
+        }
+      } catch (e) {
+        setBulkMsg(`Stopped on "${m.file_name}": ${errMsg(e)}`);
+        return;
+      }
+    }
+    setBulkMsg(
+      `SKU Generator updated — ${updated} SKU${updated === 1 ? "" : "s"} updated, ${created} created` +
+        (skipped > 0 ? `, ${skipped} skipped (no totals or file name)` : ""),
+    );
   };
 
   const tabBtn = (t: typeof tab, label: string) => (
@@ -804,22 +871,46 @@ export default function ManifestImport() {
           Export merged CSV ({selected.size})
         </button>
         {canWrite && selected.size > 0 && (
-          <div className="flex items-center gap-2">
-            <input
-              value={bulkPct}
-              onChange={(e) => setBulkPct(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && applyBulkPct()}
-              inputMode="decimal"
-              placeholder="Price %"
-              className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button onClick={applyBulkPct}
-              disabled={bulkPct.trim() === "" || Number.isNaN(Number(bulkPct))}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40">
-              Apply % to {selected.size}
+          <>
+            <button onClick={() => void addToSkuGenerator()}
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+              Add to SKU Generator ({selected.size})
             </button>
-          </div>
+            <div className="flex items-center gap-2">
+              <input
+                value={bulkPct}
+                onChange={(e) => setBulkPct(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyBulkPct()}
+                inputMode="decimal"
+                placeholder="Price %"
+                className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button onClick={applyBulkPct}
+                disabled={bulkPct.trim() === "" || Number.isNaN(Number(bulkPct))}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40">
+                Apply % to {selected.size}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                value={bulkStore}
+                onChange={(e) => setBulkStore(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyBulkStore()}
+                placeholder="Store"
+                className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button onClick={applyBulkStore}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                Set store on {selected.size}
+              </button>
+            </div>
+            <button onClick={deleteSelected}
+              className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+              Delete ({selected.size})
+            </button>
+          </>
         )}
+        {bulkMsg && <span className="text-sm text-emerald-700">{bulkMsg}</span>}
       </div>
 
       <DataTable<Manifest>
