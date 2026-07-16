@@ -870,6 +870,7 @@ export type Database = {
           source: string
           source_ref: string | null
           status: string
+          store: string | null
           total_qty: number | null
           updated_at: string
         }
@@ -888,6 +889,7 @@ export type Database = {
           source?: string
           source_ref?: string | null
           status?: string
+          store?: string | null
           total_qty?: number | null
           updated_at?: string
         }
@@ -906,6 +908,7 @@ export type Database = {
           source?: string
           source_ref?: string | null
           status?: string
+          store?: string | null
           total_qty?: number | null
           updated_at?: string
         }

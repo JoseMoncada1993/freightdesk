@@ -158,18 +158,33 @@ export function autoPricePct(
   return null;
 }
 
-/** Build [headers, ...rows] in the 22-column template for export. */
+/** Source file name without folders or extension (WYFLTXLQ51182.xlsx → WYFLTXLQ51182). */
+export function fileBaseName(name: string | null): string {
+  if (!name) return "";
+  const base = name.split(/[\\/]/).pop() ?? "";
+  return base.replace(/\.(csv|xlsx|xls|xlsm|pdf)$/i, "");
+}
+
+export function conventionStore(convention?: SkuConvention): string {
+  const tpl = convention?.product_template;
+  return tpl && typeof tpl === "object" && !Array.isArray(tpl)
+    ? String((tpl as Record<string, unknown>)["store"] ?? "")
+    : "";
+}
+
+/**
+ * Build [headers, ...rows] in the 22-column template for export.
+ * SKU column = the source file name without its extension (falls back to the
+ * linked SKU); Store = the manifest's store (falls back to the convention's).
+ */
 export function buildManifestExportRows(
   manifest: Manifest,
   sku: Sku | undefined,
   convention?: SkuConvention,
 ): (string | number | null)[][] {
   const rows = Array.isArray(manifest.rows) ? (manifest.rows as Record<string, string>[]) : [];
-  const tpl = convention?.product_template;
-  const store =
-    tpl && typeof tpl === "object" && !Array.isArray(tpl)
-      ? String((tpl as Record<string, unknown>)["store"] ?? "")
-      : "";
+  const skuLabel = fileBaseName(manifest.file_name) || (sku?.sku ?? "");
+  const store = manifest.store ?? conventionStore(convention);
   const pct = manifest.price_pct;
 
   const out: (string | number | null)[][] = [MANIFEST_HEADERS.slice()];
@@ -180,7 +195,7 @@ export function buildManifestExportRows(
     const unitPrice = extPrice != null && qty > 0 ? Math.round((extPrice / qty) * 100) / 100 : null;
     out.push(
       MANIFEST_HEADERS.map((h): string | number | null => {
-        if (h === "SKU") return sku?.sku ?? "";
+        if (h === "SKU") return skuLabel;
         if (h === "Store") return store;
         if (h === "Your Price %") return pct ?? "";
         if (h === "Your EXT Price") return extPrice ?? "";

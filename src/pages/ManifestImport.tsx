@@ -17,7 +17,7 @@ import {
 import { parseManifestFile, guessHeaderRow } from "@/lib/manifestParse";
 import {
   MANIFEST_HEADERS, MAPPABLE_HEADERS, guessMapping, normalizeManifest,
-  autoPricePct, buildManifestExportRows,
+  autoPricePct, buildManifestExportRows, fileBaseName, conventionStore,
 } from "@/lib/manifestTemplate";
 import {
   getGoogleToken, gmailSearchAttachments, gmailDownloadAttachment,
@@ -50,6 +50,19 @@ const convFor = (convs: SkuConvention[], sku: Sku | undefined) =>
   sku?.supplier
     ? convs.find((c) => c.supplier.toLowerCase() === sku.supplier!.toLowerCase())
     : undefined;
+
+// Mapping is stored source→template (matches saved mappings); the wizard edits
+// it as template→source so the template columns stay fixed on screen.
+const toTargetMap = (srcMap: Record<string, string>): Record<string, string> => {
+  const out: Record<string, string> = {};
+  for (const [src, tgt] of Object.entries(srcMap)) out[tgt] = src;
+  return out;
+};
+const toSourceMap = (targetMap: Record<string, string>): Record<string, string> => {
+  const out: Record<string, string> = {};
+  for (const [tgt, src] of Object.entries(targetMap)) if (src) out[src] = tgt;
+  return out;
+};
 
 // ---- Google client-ID settings (admin) --------------------------------------
 function GoogleSettingsModal({ current, onClose }: { current: string | null; onClose: () => void }) {
@@ -199,57 +212,67 @@ function ImportWizard({ file, onClose }: { file: PendingFile; onClose: () => voi
     () => (file.grid[headerRow] ?? []).map((h) => (h ?? "").trim()),
     [file.grid, headerRow],
   );
-  const [mapping, setMapping] = useState<Record<string, string>>(() =>
-    guessMapping((file.grid[guessHeaderRow(file.grid)] ?? []).map((h) => (h ?? "").trim())),
+  // template header → source header (template side is fixed in the UI).
+  const [targetMap, setTargetMap] = useState<Record<string, string>>(() =>
+    toTargetMap(guessMapping((file.grid[guessHeaderRow(file.grid)] ?? []).map((h) => (h ?? "").trim()))),
   );
   const [skuQuery, setSkuQuery] = useState("");
   const [pct, setPct] = useState("");
   const pctTouched = useRef(false);
+  const [store, setStore] = useState("");
+  const storeTouched = useRef(false);
   const [mappingName, setMappingName] = useState("");
 
   const skuList = useMemo(() => (skus ?? []).filter((s) => !s.archived), [skus]);
   const selectedSku = skuList.find((s) => s.sku.toLowerCase() === skuQuery.trim().toLowerCase());
   const convention = convFor(conventions ?? [], selectedSku);
 
-  // Suggest a SKU whose load # appears in the file / email name.
+  // Suggest a SKU: exact match on the file's base name first (files are named
+  // after the SKU, e.g. WYFLTXLQ51182.xlsx), then a load # in the name.
   useEffect(() => {
     if (skuQuery !== "") return;
+    const base = fileBaseName(file.name).toLowerCase();
     const hay = `${file.name} ${file.sourceRef ?? ""}`.toLowerCase();
-    const match = skuList.find((s) => s.load_ref && s.load_ref.length >= 3 && hay.includes(s.load_ref.toLowerCase()));
+    const match =
+      skuList.find((s) => s.sku.toLowerCase() === base) ??
+      skuList.find((s) => s.load_ref && s.load_ref.length >= 3 && hay.includes(s.load_ref.toLowerCase()));
     if (match) setSkuQuery(match.sku);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skuList.length]);
 
-  // Auto-price when the SKU (or rules) resolve, until the user edits the %.
+  // Auto-price + auto-store when the SKU resolves, until the user edits them.
   useEffect(() => {
-    if (pctTouched.current) return;
-    const auto = autoPricePct(selectedSku, rules ?? [], convention);
-    if (auto != null) setPct(String(auto));
+    if (!pctTouched.current) {
+      const auto = autoPricePct(selectedSku, rules ?? [], convention);
+      if (auto != null) setPct(String(auto));
+    }
+    if (!storeTouched.current) {
+      const s = conventionStore(convention);
+      if (s) setStore(s);
+    }
   }, [selectedSku, rules, convention]);
 
   const normalized = useMemo(
-    () => normalizeManifest(file.grid, headerRow, mapping),
-    [file.grid, headerRow, mapping],
+    () => normalizeManifest(file.grid, headerRow, toSourceMap(targetMap)),
+    [file.grid, headerRow, targetMap],
   );
   const pctNum = pct.trim() === "" || Number.isNaN(Number(pct)) ? null : Number(pct);
   const extPrice = pctNum != null ? Math.round(normalized.extRetail * (pctNum / 100) * 100) / 100 : null;
 
-  const mappedTargets = MANIFEST_HEADERS.filter((h) =>
-    Object.values(mapping).includes(h),
-  );
+  const mappedTargets = MANIFEST_HEADERS.filter((h) => targetMap[h]);
 
   const applySaved = (name: string) => {
     const m = (savedMappings ?? []).find((x) => x.name === name);
     if (!m || typeof m.mapping !== "object" || m.mapping == null) return;
-    const saved = m.mapping as Record<string, string>;
+    const saved = m.mapping as Record<string, string>; // source → template
     const next: Record<string, string> = {};
-    for (const h of headers) if (saved[h]) next[h] = saved[h];
-    setMapping(next);
+    for (const h of headers) if (saved[h]) next[saved[h]] = h;
+    setTargetMap(next);
   };
 
   const changeHeaderRow = (idx: number) => {
     setHeaderRow(idx);
-    setMapping(guessMapping((file.grid[idx] ?? []).map((h) => (h ?? "").trim())));
+    setTargetMap(toTargetMap(guessMapping((file.grid[idx] ?? []).map((h) => (h ?? "").trim()))));
   };
 
   const canImport = normalized.rows.length > 0 && !addManifest.isPending;
@@ -262,7 +285,8 @@ function ImportWizard({ file, onClose }: { file: PendingFile; onClose: () => voi
         source: file.source,
         source_ref: file.sourceRef,
         file_name: file.name,
-        mapping: mapping as never,
+        store: store.trim() || null,
+        mapping: toSourceMap(targetMap) as never,
         rows: normalized.rows as never,
         item_count: normalized.itemCount,
         total_qty: normalized.totalQty,
@@ -324,7 +348,7 @@ function ImportWizard({ file, onClose }: { file: PendingFile; onClose: () => voi
           <div className="flex gap-2">
             <input value={mappingName} onChange={(e) => setMappingName(e.target.value)} placeholder="e.g. Wayfair" className={inputCls} />
             <button
-              onClick={() => mappingName.trim() && saveMapping.mutate({ name: mappingName.trim(), mapping: mapping as never }, { onSuccess: () => setMappingName("") })}
+              onClick={() => mappingName.trim() && saveMapping.mutate({ name: mappingName.trim(), mapping: toSourceMap(targetMap) as never }, { onSuccess: () => setMappingName("") })}
               disabled={!mappingName.trim() || saveMapping.isPending}
               className="shrink-0 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
             >
@@ -334,46 +358,52 @@ function ImportWizard({ file, onClose }: { file: PendingFile; onClose: () => voi
         </Field>
       </div>
 
-      {/* Header mapping */}
+      {/* Header mapping: template columns fixed, pick the source column for each */}
       <div className="max-h-[30vh] overflow-y-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-slate-50 text-left text-slate-500">
             <tr>
-              <th className="px-3 py-2 font-medium">Source column</th>
-              <th className="px-3 py-2 font-medium">→ Template column</th>
+              <th className="px-3 py-2 font-medium">Template column</th>
+              <th className="px-3 py-2 font-medium">← Source column from file</th>
             </tr>
           </thead>
           <tbody>
-            {headers.map((h, i) =>
-              h === "" ? null : (
-                <tr key={`${h}-${i}`} className="border-t border-slate-100">
-                  <td className="px-3 py-1.5 font-mono text-xs">{h}</td>
-                  <td className="px-3 py-1.5">
-                    <select
-                      value={mapping[h] ?? ""}
-                      onChange={(e) =>
-                        setMapping((prev) => {
-                          const next = { ...prev };
-                          if (e.target.value) next[h] = e.target.value;
-                          else delete next[h];
-                          return next;
-                        })
-                      }
-                      className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
-                    >
-                      <option value="">— skip —</option>
-                      {MAPPABLE_HEADERS.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </td>
-                </tr>
-              ),
-            )}
+            {MAPPABLE_HEADERS.map((t) => (
+              <tr key={t} className="border-t border-slate-100">
+                <td className="px-3 py-1.5 text-xs font-medium text-blue-800">{t}</td>
+                <td className="px-3 py-1.5">
+                  <select
+                    value={targetMap[t] ?? ""}
+                    onChange={(e) =>
+                      setTargetMap((prev) => {
+                        const next = { ...prev };
+                        const src = e.target.value;
+                        if (src) {
+                          // A source column feeds one template column at a time.
+                          for (const k of Object.keys(next)) if (next[k] === src) delete next[k];
+                          next[t] = src;
+                        } else {
+                          delete next[t];
+                        }
+                        return next;
+                      })
+                    }
+                    className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
+                  >
+                    <option value="">— not in this file —</option>
+                    {headers.map((h, i) =>
+                      h === "" ? null : <option key={`${h}-${i}`} value={h}>{h}</option>,
+                    )}
+                  </select>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
       {/* Link SKU + pricing */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <Field label="Link to SKU">
           <input value={skuQuery} onChange={(e) => setSkuQuery(e.target.value)} list="wiz-skus" placeholder="Search SKU / load #…" className={inputCls} />
           <datalist id="wiz-skus">
@@ -388,7 +418,11 @@ function ImportWizard({ file, onClose }: { file: PendingFile; onClose: () => voi
         <Field label="Your Price % (of EXT retail)">
           <input value={pct} onChange={(e) => { pctTouched.current = true; setPct(e.target.value); }} inputMode="decimal" placeholder="auto from pricing rules" className={inputCls} />
         </Field>
+        <Field label="Store (template column)">
+          <input value={store} onChange={(e) => { storeTouched.current = true; setStore(e.target.value); }} placeholder="e.g. WYF" className={inputCls} />
+        </Field>
         <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-2 text-sm self-end">
+          <div className="flex justify-between gap-3"><span className="text-slate-500">SKU column</span><span className="font-mono text-xs font-medium">{fileBaseName(file.name) || "—"}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Items / Qty</span><span className="font-medium">{normalized.itemCount} / {normalized.totalQty.toLocaleString()}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">EXT retail</span><span className="font-medium">{money(normalized.extRetail)}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Your EXT price</span><span className="font-semibold text-emerald-700">{money(extPrice)}</span></div>
@@ -438,6 +472,8 @@ export default function ManifestImport() {
   const [srcError, setSrcError] = useState("");
   const [showPricing, setShowPricing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkPct, setBulkPct] = useState("");
 
   // Gmail search state
   const [gFrom, setGFrom] = useState("");
@@ -461,9 +497,16 @@ export default function ManifestImport() {
   const onUpload = async (files: FileList | null) => {
     if (!files) return;
     setSrcError("");
-    for (const f of Array.from(files)) {
+    const usable = Array.from(files).filter((f) => /\.(csv|xlsx|xls|xlsm|pdf)$/i.test(f.name));
+    if (usable.length === 0) {
+      setSrcError("No manifest files (CSV / Excel / PDF) in the selection.");
+      return;
+    }
+    let i = 0;
+    for (const f of usable) {
       try {
-        setBusy(`Parsing ${f.name}…`);
+        i++;
+        setBusy(`Parsing ${f.name} (${i}/${usable.length})…`);
         await enqueue(f.name, "upload", null, await f.arrayBuffer());
       } catch (e) {
         setSrcError(errMsg(e));
@@ -554,6 +597,41 @@ export default function ManifestImport() {
     }
   };
 
+  const toggle = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allSelected = (manifests ?? []).length > 0 && (manifests ?? []).every((m) => selected.has(m.id));
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set((manifests ?? []).map((m) => m.id)));
+
+  // One merged CSV: header row once, then every selected manifest's rows (each
+  // block keeps its own SKU = file base name, Store and pricing columns).
+  const exportMerged = () => {
+    const chosen = (manifests ?? []).filter((m) => selected.has(m.id));
+    if (chosen.length === 0) return;
+    const aoa: (string | number | null)[][] = [MANIFEST_HEADERS.slice()];
+    for (const m of chosen) {
+      const sku = m.sku_id != null ? skuById.get(m.sku_id) : undefined;
+      aoa.push(...buildManifestExportRows(m, sku, convFor(conventions ?? [], sku)).slice(1));
+    }
+    const [hdr, ...body] = aoa;
+    const objs = body.map((r) => Object.fromEntries(hdr!.map((h, i) => [String(h), r[i]])));
+    exportCsv(objs, `manifests_merged_${new Date().toISOString().slice(0, 10)}`, hdr!.map((h) => ({ key: String(h) })), { bom: false });
+  };
+
+  const applyBulkPct = () => {
+    if (bulkPct.trim() === "" || Number.isNaN(Number(bulkPct))) return;
+    for (const m of (manifests ?? []).filter((x) => selected.has(x.id))) {
+      repriceManifest(m, bulkPct);
+    }
+    setBulkPct("");
+  };
+
   const tabBtn = (t: typeof tab, label: string) => (
     <button
       onClick={() => setTab(t)}
@@ -596,15 +674,32 @@ export default function ManifestImport() {
           </div>
 
           {tab === "upload" && (
-            <div>
-              <input
-                type="file"
-                multiple
-                accept=".csv,.xlsx,.xls,.xlsm,.pdf"
-                onChange={(e) => { void onUpload(e.target.files); e.target.value = ""; }}
-                className="block text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
-              />
-              <p className="mt-2 text-xs text-slate-400">CSV, Excel (.xlsx/.xls/.xlsm) or PDF. Each file opens the mapping wizard.</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">Select files</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".csv,.xlsx,.xls,.xlsm,.pdf"
+                    onChange={(e) => { void onUpload(e.target.files); e.target.value = ""; }}
+                    className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-blue-700"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-500">…or select a whole folder</label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => { void onUpload(e.target.files); e.target.value = ""; }}
+                    className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-slate-600 hover:file:bg-slate-50"
+                    {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                CSV, Excel (.xlsx/.xls/.xlsm) or PDF — other file types in a folder are skipped. Each file opens the mapping wizard in turn.
+              </p>
             </div>
           )}
 
@@ -698,6 +793,35 @@ export default function ManifestImport() {
         </div>
       )}
 
+      {/* Selection toolbar: merged export + bulk price % */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <button onClick={toggleAll}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+          {allSelected ? "Clear selection" : "Select all"}
+        </button>
+        <button onClick={exportMerged} disabled={selected.size === 0}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40">
+          Export merged CSV ({selected.size})
+        </button>
+        {canWrite && selected.size > 0 && (
+          <div className="flex items-center gap-2">
+            <input
+              value={bulkPct}
+              onChange={(e) => setBulkPct(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyBulkPct()}
+              inputMode="decimal"
+              placeholder="Price %"
+              className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button onClick={applyBulkPct}
+              disabled={bulkPct.trim() === "" || Number.isNaN(Number(bulkPct))}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40">
+              Apply % to {selected.size}
+            </button>
+          </div>
+        )}
+      </div>
+
       <DataTable<Manifest>
         rows={manifests ?? []}
         isLoading={isLoading}
@@ -705,15 +829,46 @@ export default function ManifestImport() {
         rowKey={(r) => r.id}
         empty="No manifests imported yet."
         columns={[
-          { header: "File", cell: (r) => <span className="font-medium">{r.file_name ?? "—"}</span>, sort: (r) => r.file_name },
-          { header: "Source", cell: (r) => <span className="capitalize">{r.source}</span>, sort: (r) => r.source },
           {
-            header: "SKU",
+            header: "",
+            cell: (r) => (
+              <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} className="rounded border-slate-300" />
+            ),
+          },
+          { header: "File", cell: (r) => <span className="font-medium">{r.file_name ?? "—"}</span>, sort: (r) => r.file_name },
+          {
+            header: "SKU (export)",
+            cell: (r) => <span className="font-mono text-xs">{fileBaseName(r.file_name) || (r.sku_id != null ? skuById.get(r.sku_id)?.sku ?? "—" : "—")}</span>,
+            sort: (r) => fileBaseName(r.file_name),
+          },
+          {
+            header: "Linked SKU",
             cell: (r) => {
               const s = r.sku_id != null ? skuById.get(r.sku_id) : undefined;
               return s ? <span className="font-mono text-xs">{s.sku}</span> : <span className="text-slate-400">—</span>;
             },
             sort: (r) => (r.sku_id != null ? skuById.get(r.sku_id)?.sku ?? null : null),
+          },
+          {
+            header: "Store",
+            cell: (r) => {
+              const s = r.sku_id != null ? skuById.get(r.sku_id) : undefined;
+              const fallback = conventionStore(convFor(conventions ?? [], s));
+              return canWrite ? (
+                <input
+                  key={`${r.id}:${r.store ?? ""}`}
+                  defaultValue={r.store ?? ""}
+                  placeholder={fallback || "—"}
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v !== (r.store ?? "")) updateManifest.mutate({ id: r.id, store: v || null }); }}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                  className="w-20 rounded-md border border-slate-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Store column for the template export — saves on blur"
+                />
+              ) : (
+                r.store ?? fallback ?? "—"
+              );
+            },
+            sort: (r) => r.store,
           },
           { header: "Items", cell: (r) => r.item_count ?? "—", sort: (r) => r.item_count },
           { header: "Qty", cell: (r) => r.total_qty?.toLocaleString() ?? "—", sort: (r) => r.total_qty },

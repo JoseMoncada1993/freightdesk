@@ -8,19 +8,39 @@ export async function parseManifestFile(name: string, data: ArrayBuffer): Promis
   return parseSpreadsheet(data);
 }
 
+// Full-precision plain text for a number — never scientific notation (Excel's
+// General format shows long UPCs/IDs as 8.12346E+11; we keep every digit).
+const plainNumber = (n: number): string => {
+  const s = String(n);
+  if (!/e/i.test(s)) return s;
+  return n.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 });
+};
+
+const cellText = (c: unknown): string => {
+  if (c == null) return "";
+  if (c instanceof Date) return Number.isNaN(c.getTime()) ? "" : c.toLocaleDateString("en-US");
+  if (typeof c === "number") return plainNumber(c);
+  if (typeof c === "boolean") return c ? "TRUE" : "FALSE";
+  return String(c);
+};
+
 // CSV, XLSX, XLS, XLSM — SheetJS handles format detection from the bytes.
+// Raw cell values are read (not Excel's display text) so numbers keep their
+// original digits instead of General-format scientific notation.
 async function parseSpreadsheet(data: ArrayBuffer): Promise<string[][]> {
   const XLSX = await import("xlsx");
-  const wb = XLSX.read(data, { type: "array" });
+  const wb = XLSX.read(data, { type: "array", cellDates: true });
   // Pick the sheet with the most content (templates often have empty Sheet1).
   let best: string[][] = [];
+  let bestCells = 0;
   for (const sheetName of wb.SheetNames) {
     const ws = wb.Sheets[sheetName];
     if (!ws) continue;
-    const grid = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: "" });
-    const cells = grid.reduce((n, r) => n + r.filter((c) => String(c).trim() !== "").length, 0);
-    const bestCells = best.reduce((n, r) => n + r.filter((c) => String(c).trim() !== "").length, 0);
-    if (cells > bestCells) best = grid.map((r) => r.map((c) => String(c ?? "")));
+    const grid = XLSX.utils
+      .sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: "" })
+      .map((r) => r.map(cellText));
+    const cells = grid.reduce((n, r) => n + r.filter((c) => c.trim() !== "").length, 0);
+    if (cells > bestCells) { best = grid; bestCells = cells; }
   }
   return best;
 }
