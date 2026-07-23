@@ -106,9 +106,19 @@ function ModuleAccessModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const [levels, setLevels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(grants.map((g) => [g.module, g.level])),
-  );
+  const role = (profile.role as Role) ?? "viewer";
+  // Each module's default from the role: write if the role grants it, else view
+  // (everyone can read). The dropdown starts on the user's effective access.
+  const roleDefault = (m: WriteModule): "write" | "view" => (canWrite(role, m) ? "write" : "view");
+  const [levels, setLevels] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const m of ALL_MODULES) {
+      const g = grants.find((x) => x.module === m);
+      init[m] = g ? g.level : roleDefault(m);
+    }
+    return init;
+  });
+
   const save = useMutation({
     mutationFn: async () => {
       const { error: delError } = await supabase
@@ -116,9 +126,11 @@ function ModuleAccessModal({
         .delete()
         .eq("user_id", profile.id);
       if (delError) throw delError;
-      const rows = Object.entries(levels)
-        .filter(([, lvl]) => lvl === "write" || lvl === "view" || lvl === "hidden")
-        .map(([module, level]) => ({ user_id: profile.id, module, level }));
+      // Only store choices that differ from the role default, so unchanged
+      // modules keep following the role.
+      const rows = ALL_MODULES
+        .filter((m) => levels[m] && levels[m] !== roleDefault(m))
+        .map((m) => ({ user_id: profile.id, module: m, level: levels[m] }));
       if (rows.length > 0) {
         const { error } = await supabase.from("user_module_access").insert(rows);
         if (error) throw error;
@@ -130,8 +142,6 @@ function ModuleAccessModal({
     },
   });
 
-  const role = (profile.role as Role) ?? "viewer";
-
   return (
     <Modal
       title={`Module access — ${profile.full_name ?? profile.email ?? profile.id}`}
@@ -140,42 +150,43 @@ function ModuleAccessModal({
       footer={<ModalActions onCancel={onClose} onSubmit={() => save.mutate()} submitLabel="Save access" pending={save.isPending} />}
     >
       <p className="text-xs text-slate-400">
-        The <b>{ROLE_LABELS[role] ?? role}</b> role already grants the access marked &quot;from role&quot;.
-        Per-module override: <b>Write</b> allows add/edit (enforced by the database), <b>View only</b> marks it
-        read-only, and <b>Hidden</b> removes the module from this user&apos;s sidebar and blocks its page.
-        Changes apply the next time they load the app.
+        Set each module&apos;s access for this user: <b>Write</b> (add / edit), <b>View only</b> (visible but
+        read-only), or <b>Hidden</b> (removed from their sidebar and the page blocked). Values start at the
+        <b> {ROLE_LABELS[role] ?? role}</b> role default. Changes apply the next time they load the app.
       </p>
       <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-3 py-2 font-medium">Module</th>
-              <th className="px-3 py-2 font-medium">From role</th>
-              <th className="px-3 py-2 font-medium">Extra grant</th>
+              <th className="px-3 py-2 font-medium">Access</th>
             </tr>
           </thead>
           <tbody>
             {ALL_MODULES.map((m) => {
-              const roleHasWrite = canWrite(role, m);
+              const changed = levels[m] !== roleDefault(m);
               return (
                 <tr key={m} className="border-t border-slate-100">
                   <td className="px-3 py-2 font-medium text-slate-700">{MODULE_LABELS[m]}</td>
-                  <td className="px-3 py-2 text-xs">
-                    {roleHasWrite
-                      ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700">write</span>
-                      : <span className="text-slate-400">view</span>}
-                  </td>
                   <td className="px-3 py-2">
-                    <select
-                      value={levels[m] ?? ""}
-                      onChange={(e) => setLevels((prev) => ({ ...prev, [m]: e.target.value }))}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                    >
-                      <option value="">— {roleHasWrite ? "role default (write)" : "role default"} —</option>
-                      {!roleHasWrite && <option value="view">View only</option>}
-                      {!roleHasWrite && <option value="write">Write</option>}
-                      <option value="hidden">Hidden</option>
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={levels[m] ?? "view"}
+                        onChange={(e) => setLevels((prev) => ({ ...prev, [m]: e.target.value }))}
+                        className={`rounded-md border px-2 py-1 text-xs ${
+                          levels[m] === "hidden"
+                            ? "border-red-300 bg-red-50 text-red-700"
+                            : levels[m] === "write"
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200"
+                        }`}
+                      >
+                        <option value="write">Write</option>
+                        <option value="view">View only</option>
+                        <option value="hidden">Hidden</option>
+                      </select>
+                      {changed && <span className="text-xs text-amber-600">from role: {roleDefault(m)}</span>}
+                    </div>
                   </td>
                 </tr>
               );

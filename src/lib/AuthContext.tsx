@@ -98,9 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         roleLoading,
         profileName,
-        // Admins always keep full visibility/access to every module.
+        // An explicit per-user override fully replaces the role default; admins
+        // always keep full write access and visibility.
         can: (module) =>
-          overrides[module] !== "hidden" && (canWrite(role, module) || overrides[module] === "write"),
+          isAdmin(role) ||
+          (overrides[module] ? overrides[module] === "write" : canWrite(role, module)),
         isHidden: (module) => !isAdmin(role) && overrides[module] === "hidden",
         canDelete: canDelete(role),
         isAdmin: isAdmin(role),
