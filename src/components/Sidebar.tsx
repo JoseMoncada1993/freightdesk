@@ -38,7 +38,9 @@ export default function Sidebar() {
   };
 
   const visible = links.filter((l) => !l.mod || !isHidden(l.mod));
-  const items = isAdmin ? [...visible, { to: "/team", label: "Team", abbr: "Te" }] : visible;
+  const items = isAdmin
+    ? [...visible, { to: "/team", label: "Team", abbr: "Te" }, { to: "/activity", label: "Activity Log", abbr: "AL" }]
+    : visible;
 
   return (
     <aside

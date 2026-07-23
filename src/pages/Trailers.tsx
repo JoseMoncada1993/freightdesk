@@ -34,9 +34,12 @@ const hoursInYard = (t: YardTrailerEnriched) => {
 
 function TrailerForm({
   trailer,
+  knownSites = [],
   onClose,
 }: {
   trailer: YardTrailerEnriched | null;
+  /** Sites already in use, most recent first — pre-fills and suggests on gate-in. */
+  knownSites?: string[];
   onClose: () => void;
 }) {
   const carriers = useCarriers();
@@ -44,7 +47,8 @@ function TrailerForm({
   const update = useUpdateTrailer();
   const editing = trailer != null;
 
-  const [site, setSite] = useState(trailer?.site ?? "");
+  // Gating in: start on the most recently used yard so it doesn't need retyping.
+  const [site, setSite] = useState(trailer?.site ?? knownSites[0] ?? "");
   const [trailerNo, setTrailerNo] = useState(trailer?.trailer_no ?? "");
   const [carrierId, setCarrierId] = useState(trailer?.carrier_id ? String(trailer.carrier_id) : "");
   const [status, setStatus] = useState(trailer?.status ?? "Empty");
@@ -98,7 +102,10 @@ function TrailerForm({
     >
       <div className="grid grid-cols-2 gap-4">
         <Field label="Site / yard *">
-          <input value={site} onChange={(e) => setSite(e.target.value)} placeholder="ATL-01" className={inputCls} />
+          <input value={site} onChange={(e) => setSite(e.target.value)} list="yard-sites" placeholder="ATL-01" className={inputCls} />
+          <datalist id="yard-sites">
+            {knownSites.map((s2) => <option key={s2} value={s2} />)}
+          </datalist>
         </Field>
         <Field label="Trailer # *">
           <input value={trailerNo} onChange={(e) => setTrailerNo(e.target.value)} placeholder="TRL-53102" className={inputCls} />
@@ -172,6 +179,15 @@ export default function Trailers() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Every site ever used, most recently gated-in first — pre-fills the
+  // gate-in form so the yard doesn't need retyping.
+  const recentSites = useMemo(() => {
+    const sorted = [...(data ?? [])].sort((a, b) =>
+      (b.gate_in_at ?? b.created_at ?? "").localeCompare(a.gate_in_at ?? a.created_at ?? ""),
+    );
+    return Array.from(new Set(sorted.map((t) => t.site).filter((s): s is string => !!s && s.trim() !== "")));
+  }, [data]);
 
   // Only offer sites that exist in the current view (archived vs active),
   // so archived-only sites don't clutter the filter.
@@ -392,8 +408,8 @@ export default function Trailers() {
           },
         ]}
       />
-      {showAdd && <TrailerForm trailer={null} onClose={() => setShowAdd(false)} />}
-      {editing && <TrailerForm trailer={editing} onClose={() => setEditing(null)} />}
+      {showAdd && <TrailerForm trailer={null} knownSites={recentSites} onClose={() => setShowAdd(false)} />}
+      {editing && <TrailerForm trailer={editing} knownSites={recentSites} onClose={() => setEditing(null)} />}
       {showImport && (
         <ImportCsvModal
           title="Import drop trailers from CSV"

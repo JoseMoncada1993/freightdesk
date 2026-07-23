@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: number
+          ref: string | null
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: never
+          ref?: string | null
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: never
+          ref?: string | null
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -668,6 +695,7 @@ export type Database = {
           eta: string | null
           freight_type: string | null
           id: number
+          internal_notes: string | null
           invoice_due_date: string | null
           invoice_number: string | null
           invoiced_at: string | null
@@ -725,6 +753,7 @@ export type Database = {
           eta?: string | null
           freight_type?: string | null
           id?: never
+          internal_notes?: string | null
           invoice_due_date?: string | null
           invoice_number?: string | null
           invoiced_at?: string | null
@@ -782,6 +811,7 @@ export type Database = {
           eta?: string | null
           freight_type?: string | null
           id?: never
+          internal_notes?: string | null
           invoice_due_date?: string | null
           invoice_number?: string | null
           invoiced_at?: string | null
@@ -1440,6 +1470,7 @@ export type Database = {
           eta: string | null
           freight_type: string | null
           id: number | null
+          internal_notes: string | null
           invoice_due_date: string | null
           invoice_number: string | null
           invoiced_at: string | null

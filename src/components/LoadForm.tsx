@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Modal, { Field, ModalActions, ErrorText, inputCls } from "@/components/ui/Modal";
 import { estimateMiles, estimateQuote, DEFAULT_RATE_PER_MILE, DEFAULT_FUEL_PCT, DEFAULT_MIN_CHARGE } from "@/lib/distance";
+import { nextBolNumber } from "@/lib/bolNumber";
+import { useLoads } from "@/hooks/useLoads";
 import { useSaveFullLoad } from "@/hooks/useMutations";
 import { useCarriers, useCustomerAddresses, useCustomers } from "@/hooks/useTables";
 import { LOAD_STATUSES, TRANSPORT_TYPES } from "@/lib/types";
@@ -195,6 +197,7 @@ const fromDateInput = (v: string) => {
 export default function LoadForm({ load, onClose }: LoadFormProps) {
   const editing = load != null;
   const save = useSaveFullLoad();
+  const allLoads = useLoads(); // existing BOL #s feed the daily sequence
   const carriers = useCarriers();
   const customers = useCustomers();
   const addressBook = useCustomerAddresses();
@@ -212,6 +215,8 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
   const [freightType, setFreightType] = useState(load?.freight_type ?? "");
   const [weight, setWeight] = useState(load?.weight_lbs != null ? String(load.weight_lbs) : "");
   const [bolNumber, setBolNumber] = useState(load?.bol_number ?? "");
+  const [bolOpen, setBolOpen] = useState(!editing);
+  const [internalNotes, setInternalNotes] = useState(load?.internal_notes ?? "");
   const [pickupDate, setPickupDate] = useState(toDateInput(load?.pickup_at));
   const [deliveryDate, setDeliveryDate] = useState(toDateInput(load?.delivery_at));
   const [rateUsd, setRateUsd] = useState(load?.rate_usd != null ? String(load.rate_usd) : "");
@@ -268,6 +273,7 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
         freight_type: freightType.trim() || null,
         weight_lbs: weight ? Number(weight) : null,
         bol_number: bolNumber.trim() || null,
+        internal_notes: internalNotes.trim() || null,
         pickup_at: fromDateInput(pickupDate),
         delivery_at: fromDateInput(deliveryDate),
         rate_usd: rateUsd ? Number(rateUsd) : null,
@@ -331,6 +337,72 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
       <PartyFields title="Pickup (Ship From)" party={shipper} set={setShipper} customers={customerList} addresses={addressList} onFill={setShipper} defaultCollapsed={editing} />
       <PartyFields title="Delivery (Ship To)" party={consignee} set={setConsignee} customers={customerList} addresses={addressList} onFill={setConsignee} defaultCollapsed={editing} />
 
+      {/* BOL details — everything that prints on the BOL, collapsible */}
+      <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setBolOpen((v) => !v)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h3 className="shrink-0 text-sm font-semibold text-slate-700">BOL details</h3>
+            {!bolOpen && (
+              <span className="truncate text-xs text-slate-500">
+                {[bolNumber && `BOL ${bolNumber}`, commodity, qty && `${qty} ${freightType || "units"}`, weight && `${weight} lbs`]
+                  .filter(Boolean)
+                  .join(" · ") || "No details yet"}
+              </span>
+            )}
+          </div>
+          <span className="shrink-0 text-xs font-medium text-blue-600">{bolOpen ? "Collapse ▲" : "Expand ▼"}</span>
+        </button>
+        {bolOpen && (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="BOL #">
+                <div className="flex gap-2">
+                  <input value={bolNumber} onChange={(e) => setBolNumber(e.target.value)} placeholder="26ALP0501" className={inputCls} />
+                  <button
+                    type="button"
+                    onClick={() => setBolNumber(nextBolNumber((allLoads.data ?? []).map((l) => l.bol_number)))}
+                    title="Auto-generate: YY + Greek month + day + daily sequence (e.g. 26ALP0501)"
+                    className="shrink-0 rounded-lg border border-slate-300 px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Auto
+                  </button>
+                </div>
+              </Field>
+              <Field label="Commodity">
+                <input value={commodity} onChange={(e) => setCommodity(e.target.value)} className={inputCls} />
+              </Field>
+              <Field label="Weight (lbs)">
+                <input value={weight} onChange={(e) => setWeight(e.target.value)} inputMode="numeric" className={inputCls} />
+              </Field>
+              <Field label="Qty">
+                <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder="e.g. 12" className={inputCls} />
+              </Field>
+              <Field label="Type">
+                <input
+                  value={freightType}
+                  onChange={(e) => setFreightType(e.target.value)}
+                  list="freight-types"
+                  placeholder="e.g. Pallets, LTL"
+                  className={inputCls}
+                />
+                <datalist id="freight-types">
+                  {FREIGHT_TYPES.map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+              </Field>
+            </div>
+            <Field label="Notes / special instructions (prints on the BOL)">
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} />
+            </Field>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <Field label="Transportation type">
           <select value={transportType} onChange={(e) => setTransportType(e.target.value)} className={inputCls}>
@@ -347,32 +419,6 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
               <option key={eq} value={eq}>{eq}</option>
             ))}
           </select>
-        </Field>
-        <Field label="Commodity">
-          <input value={commodity} onChange={(e) => setCommodity(e.target.value)} className={inputCls} />
-        </Field>
-        <Field label="Qty">
-          <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder="e.g. 12" className={inputCls} />
-        </Field>
-        <Field label="Type">
-          <input
-            value={freightType}
-            onChange={(e) => setFreightType(e.target.value)}
-            list="freight-types"
-            placeholder="e.g. Pallets, LTL"
-            className={inputCls}
-          />
-          <datalist id="freight-types">
-            {FREIGHT_TYPES.map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
-        </Field>
-        <Field label="Weight (lbs)">
-          <input value={weight} onChange={(e) => setWeight(e.target.value)} inputMode="numeric" className={inputCls} />
-        </Field>
-        <Field label="BOL #">
-          <input value={bolNumber} onChange={(e) => setBolNumber(e.target.value)} className={inputCls} />
         </Field>
         <Field label="Pickup date &amp; time">
           <input value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} type="datetime-local" className={inputCls} />
@@ -426,8 +472,14 @@ export default function LoadForm({ load, onClose }: LoadFormProps) {
         )}
       </div>
 
-      <Field label="Notes / special instructions (prints on the BOL)">
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputCls} />
+      <Field label="Internal notes (never shown on the BOL)">
+        <textarea
+          value={internalNotes}
+          onChange={(e) => setInternalNotes(e.target.value)}
+          rows={2}
+          placeholder="Team-only notes for this shipment…"
+          className={inputCls}
+        />
       </Field>
       <ErrorText error={save.error} />
     </Modal>
