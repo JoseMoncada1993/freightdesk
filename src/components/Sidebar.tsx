@@ -4,27 +4,30 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { ROLE_LABELS } from "@/lib/permissions";
+import type { WriteModule } from "@/lib/permissions";
 
-const links = [
+// `mod` links a nav item to a module key so admins can hide it per user.
+// Dashboard has no module (always visible); Team is admin-only.
+const links: { to: string; label: string; abbr: string; end?: boolean; mod?: WriteModule }[] = [
   { to: "/", label: "Dashboard", abbr: "Da", end: true },
-  { to: "/shipments", label: "Shipments", abbr: "Sh" },
-  { to: "/billing", label: "Billing", abbr: "Bi" },
-  { to: "/trailers", label: "Drop Trailers", abbr: "Tr" },
-  { to: "/routes", label: "Route Optimizer", abbr: "Ro" },
-  { to: "/inventory", label: "Inventory", abbr: "In" },
-  { to: "/sams", label: "Sam's Club", abbr: "SC" },
-  { to: "/skus", label: "SKU Generator", abbr: "SK" },
-  { to: "/manifests", label: "Manifest Import", abbr: "MI" },
-  { to: "/customers", label: "Customers", abbr: "Cu" },
-  { to: "/carriers", label: "Carriers", abbr: "Ca" },
-  { to: "/documents", label: "Documents", abbr: "Do" },
-  { to: "/tasks", label: "Tasks", abbr: "Ta" },
-  { to: "/forms", label: "Forms", abbr: "Fo" },
-  { to: "/emails", label: "Email Data Log", abbr: "Em" },
+  { to: "/shipments", label: "Shipments", abbr: "Sh", mod: "shipments" },
+  { to: "/billing", label: "Billing", abbr: "Bi", mod: "billing" },
+  { to: "/trailers", label: "Drop Trailers", abbr: "Tr", mod: "trailers" },
+  { to: "/routes", label: "Route Optimizer", abbr: "Ro", mod: "routes" },
+  { to: "/inventory", label: "Inventory", abbr: "In", mod: "inventory" },
+  { to: "/sams", label: "Sam's Club", abbr: "SC", mod: "sams" },
+  { to: "/skus", label: "SKU Generator", abbr: "SK", mod: "skus" },
+  { to: "/manifests", label: "Manifest Import", abbr: "MI", mod: "manifests" },
+  { to: "/customers", label: "Customers", abbr: "Cu", mod: "customers" },
+  { to: "/carriers", label: "Carriers", abbr: "Ca", mod: "carriers" },
+  { to: "/documents", label: "Documents", abbr: "Do", mod: "documents" },
+  { to: "/tasks", label: "Tasks", abbr: "Ta", mod: "tasks" },
+  { to: "/forms", label: "Forms", abbr: "Fo", mod: "forms" },
+  { to: "/emails", label: "Email Data Log", abbr: "Em", mod: "emails" },
 ];
 
 export default function Sidebar() {
-  const { role, isAdmin } = useAuth();
+  const { role, isAdmin, isHidden } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("fd_sidebar") === "collapsed");
 
   const toggle = () => {
@@ -34,7 +37,8 @@ export default function Sidebar() {
     });
   };
 
-  const items = isAdmin ? [...links, { to: "/team", label: "Team", abbr: "Te" }] : links;
+  const visible = links.filter((l) => !l.mod || !isHidden(l.mod));
+  const items = isAdmin ? [...visible, { to: "/team", label: "Team", abbr: "Te" }] : visible;
 
   return (
     <aside

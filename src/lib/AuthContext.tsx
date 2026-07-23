@@ -16,6 +16,8 @@ type AuthContextValue = {
   profileName: string | null;
   /** Can the current user write (add/edit) in this module? Role OR admin-granted override. */
   can: (module: WriteModule) => boolean;
+  /** Admin has hidden this module from the current user (nav-level). */
+  isHidden: (module: WriteModule) => boolean;
   /** Hard deletes are admin-only. */
   canDelete: boolean;
   isAdmin: boolean;
@@ -96,7 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         roleLoading,
         profileName,
-        can: (module) => canWrite(role, module) || overrides[module] === "write",
+        // Admins always keep full visibility/access to every module.
+        can: (module) =>
+          overrides[module] !== "hidden" && (canWrite(role, module) || overrides[module] === "write"),
+        isHidden: (module) => !isAdmin(role) && overrides[module] === "hidden",
         canDelete: canDelete(role),
         isAdmin: isAdmin(role),
         signOut,

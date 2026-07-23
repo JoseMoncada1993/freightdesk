@@ -117,7 +117,7 @@ function ModuleAccessModal({
         .eq("user_id", profile.id);
       if (delError) throw delError;
       const rows = Object.entries(levels)
-        .filter(([, lvl]) => lvl === "write" || lvl === "view")
+        .filter(([, lvl]) => lvl === "write" || lvl === "view" || lvl === "hidden")
         .map(([module, level]) => ({ user_id: profile.id, module, level }));
       if (rows.length > 0) {
         const { error } = await supabase.from("user_module_access").insert(rows);
@@ -141,9 +141,9 @@ function ModuleAccessModal({
     >
       <p className="text-xs text-slate-400">
         The <b>{ROLE_LABELS[role] ?? role}</b> role already grants the access marked &quot;from role&quot;.
-        Grants here add to the role: <b>Write</b> allows add/edit in that module (enforced by the database),
-        <b> View only</b> marks the module as intentionally read-only for this user. Changes apply the next time
-        they load the app.
+        Per-module override: <b>Write</b> allows add/edit (enforced by the database), <b>View only</b> marks it
+        read-only, and <b>Hidden</b> removes the module from this user&apos;s sidebar and blocks its page.
+        Changes apply the next time they load the app.
       </p>
       <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
@@ -169,12 +169,12 @@ function ModuleAccessModal({
                     <select
                       value={levels[m] ?? ""}
                       onChange={(e) => setLevels((prev) => ({ ...prev, [m]: e.target.value }))}
-                      disabled={roleHasWrite}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs disabled:opacity-40"
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs"
                     >
-                      <option value="">— none —</option>
-                      <option value="view">View only</option>
-                      <option value="write">Write</option>
+                      <option value="">— {roleHasWrite ? "role default (write)" : "role default"} —</option>
+                      {!roleHasWrite && <option value="view">View only</option>}
+                      {!roleHasWrite && <option value="write">Write</option>}
+                      <option value="hidden">Hidden</option>
                     </select>
                   </td>
                 </tr>
@@ -311,8 +311,15 @@ export default function Team() {
                         <div className="flex flex-wrap gap-1">
                           {grants.map((g) => (
                             <span key={g.module}
-                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${g.level === "write" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
-                              {MODULE_LABELS[g.module as WriteModule] ?? g.module}{g.level === "view" ? " (view)" : ""}
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                g.level === "write"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : g.level === "hidden"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-slate-200 text-slate-600"
+                              }`}>
+                              {MODULE_LABELS[g.module as WriteModule] ?? g.module}
+                              {g.level === "view" ? " (view)" : g.level === "hidden" ? " (hidden)" : ""}
                             </span>
                           ))}
                         </div>

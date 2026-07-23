@@ -19,9 +19,15 @@ import Forms from "./pages/Forms";
 import PublicForm from "./pages/PublicForm";
 import EmailLog from "./pages/EmailLog";
 import Team from "./pages/Team";
+import type { ReactElement } from "react";
+import type { WriteModule } from "@/lib/permissions";
 
 export default function App() {
-  const { session, loading, isAdmin } = useAuth();
+  const { session, loading, isAdmin, isHidden } = useAuth();
+
+  // Redirect a hidden module's route to the dashboard (direct-URL guard).
+  const guard = (mod: WriteModule, el: ReactElement) =>
+    isHidden(mod) ? <Navigate to="/" replace /> : el;
 
   if (loading) {
     return (
@@ -46,20 +52,20 @@ export default function App() {
       <Route path="f/:slug" element={<PublicForm />} />
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
-        <Route path="shipments" element={<Shipments />} />
-        <Route path="billing" element={<Billing />} />
-        <Route path="trailers" element={<Trailers />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="carriers" element={<Carriers />} />
-        <Route path="documents" element={<Documents />} />
-        <Route path="tasks" element={<Tasks />} />
-        <Route path="skus" element={<SkuGenerator />} />
-        <Route path="manifests" element={<ManifestImport />} />
-        <Route path="sams" element={<SamsClub />} />
-        <Route path="routes" element={<RouteOptimizer />} />
-        <Route path="forms" element={<Forms />} />
-        <Route path="emails" element={<EmailLog />} />
+        <Route path="shipments" element={guard("shipments", <Shipments />)} />
+        <Route path="billing" element={guard("billing", <Billing />)} />
+        <Route path="trailers" element={guard("trailers", <Trailers />)} />
+        <Route path="inventory" element={guard("inventory", <Inventory />)} />
+        <Route path="customers" element={guard("customers", <Customers />)} />
+        <Route path="carriers" element={guard("carriers", <Carriers />)} />
+        <Route path="documents" element={guard("documents", <Documents />)} />
+        <Route path="tasks" element={guard("tasks", <Tasks />)} />
+        <Route path="skus" element={guard("skus", <SkuGenerator />)} />
+        <Route path="manifests" element={guard("manifests", <ManifestImport />)} />
+        <Route path="sams" element={guard("sams", <SamsClub />)} />
+        <Route path="routes" element={guard("routes", <RouteOptimizer />)} />
+        <Route path="forms" element={guard("forms", <Forms />)} />
+        <Route path="emails" element={guard("emails", <EmailLog />)} />
         {isAdmin && <Route path="team" element={<Team />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
