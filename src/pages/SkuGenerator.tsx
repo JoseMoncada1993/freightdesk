@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useLoads } from "@/hooks/useLoads";
 import {
   useSkus,
-  useAddSku,
+  useAddSkus,
   useDeleteSku,
   useUpdateSku,
   useBulkUpdateSkus,
@@ -364,7 +364,7 @@ export default function SkuGenerator() {
   const loads = useLoads();
   const { data: skus, isLoading, error } = useSkus();
   const { data: conventions } = useSkuConventions();
-  const addSku = useAddSku();
+  const addSku = useAddSkus();
   const del = useDeleteSku();
   const updateSku = useUpdateSku();
 
@@ -387,8 +387,12 @@ export default function SkuGenerator() {
 
   const autoPrefix = buildPrefix(supplier, location, program);
   const prefix = prefixOverride ?? autoPrefix;
-  const loadPart = cleanLoad(loadRef);
-  const sku = prefix + loadPart; // Prefix & Load# only — no separator.
+  // One or many load #s (comma / space / newline separated) — one SKU each.
+  const loadParts = useMemo(
+    () => Array.from(new Set(loadRef.split(/[\s,;]+/).map(cleanLoad).filter(Boolean))),
+    [loadRef],
+  );
+  const generated = loadParts.map((p) => prefix + p); // Prefix & Load# only — no separator.
 
   const applyConvention = (c: Pick<SkuConvention, "location" | "program" | "prefix">) => {
     setLocation(c.location ?? "");
@@ -418,30 +422,34 @@ export default function SkuGenerator() {
   );
 
   const existing = new Set((skus ?? []).map((s) => s.sku));
-  const duplicate = sku !== "" && existing.has(sku);
-  const canSubmit = canWrite && prefix !== "" && loadPart !== "" && !duplicate && !addSku.isPending;
+  const duplicates = generated.filter((s) => existing.has(s));
+  const canSubmit =
+    canWrite && prefix !== "" && loadParts.length > 0 && duplicates.length === 0 && !addSku.isPending;
 
   const reset = () => {
     setLoadRef("");
     setNotes("");
-    setPrefixOverride(null);
+    // Keep the supplier's saved convention prefix — don't fall back to the
+    // auto-derived one after generating (the "prefix changes" bug).
+    setPrefixOverride(matchedConvention ? matchedConvention.prefix : prefixOverride);
   };
 
   const handleGenerate = () => {
     if (!canSubmit) return;
-    const match = (loads.data ?? []).find((l) => (l.ref ?? "").toUpperCase() === loadPart);
-    addSku.mutate(
-      {
-        sku, prefix,
+    const inputs = loadParts.map((part) => {
+      const match = (loads.data ?? []).find((l) => (l.ref ?? "").toUpperCase() === part);
+      return {
+        sku: prefix + part,
+        prefix,
         supplier: supplier.trim() || null,
         location: location.trim() || null,
         program: program.trim() || null,
-        load_ref: loadRef.trim() || null,
+        load_ref: part,
         load_id: match?.id ?? null,
         notes: notes.trim() || null,
-      },
-      { onSuccess: reset },
-    );
+      };
+    });
+    addSku.mutate(inputs, { onSuccess: reset });
   };
 
   // Search by load # / supplier (+ sku), and active/archived filter.
@@ -544,8 +552,8 @@ export default function SkuGenerator() {
             <Field label="Prefix (editable)">
               <input value={prefix} onChange={(e) => setPrefixOverride(e.target.value.toUpperCase())} placeholder="Auto from supplier / fields" className={inputCls} />
             </Field>
-            <Field label="Load #">
-              <input value={loadRef} onChange={(e) => setLoadRef(e.target.value)} list="sku-loads" placeholder="LD-2105" className={inputCls} />
+            <Field label="Load #(s) — separate several with commas or spaces">
+              <input value={loadRef} onChange={(e) => setLoadRef(e.target.value)} list="sku-loads" placeholder="51182, 51183, 51184" className={inputCls} />
               <datalist id="sku-loads">
                 {(loads.data ?? []).map((l) => (l.ref ? <option key={l.id} value={l.ref} /> : null))}
               </datalist>
@@ -556,14 +564,25 @@ export default function SkuGenerator() {
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
-            <div className="text-sm">
-              <span className="text-slate-500">Generated SKU: </span>
-              <span className="font-mono font-semibold text-slate-800">{sku || "—"}</span>
-              {duplicate && <span className="ml-3 text-red-600">Already exists</span>}
+            <div className="min-w-0 text-sm">
+              <span className="text-slate-500">
+                Generated SKU{generated.length === 1 ? "" : `s (${generated.length})`}:{" "}
+              </span>
+              <span className="font-mono font-semibold text-slate-800 break-all">
+                {generated.length > 0 ? generated.slice(0, 6).join(", ") : "—"}
+                {generated.length > 6 && ` … +${generated.length - 6} more`}
+              </span>
+              {duplicates.length > 0 && (
+                <span className="ml-3 text-red-600">
+                  Already exist{duplicates.length === 1 ? "s" : ""}: {duplicates.slice(0, 4).join(", ")}
+                </span>
+              )}
             </div>
             <button onClick={handleGenerate} disabled={!canSubmit}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40">
-              {addSku.isPending ? "Saving…" : "Generate & Save"}
+              className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40">
+              {addSku.isPending
+                ? "Saving…"
+                : `Generate & Save${loadParts.length > 1 ? ` (${loadParts.length})` : ""}`}
             </button>
           </div>
           <div className="mt-2"><ErrorText error={addSku.error} /></div>

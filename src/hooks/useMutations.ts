@@ -90,6 +90,18 @@ export function useUpdateTask() {
   });
 }
 
+/** Hard delete — RLS restricts this to admins. */
+export function useDeleteLoad() {
+  const invalidate = useInvalidate(["loads"]);
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from("loads").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 export function useUpdateLoad() {
   const invalidate = useInvalidate(["loads"]);
   return useMutation({

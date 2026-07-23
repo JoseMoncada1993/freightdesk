@@ -1,47 +1,71 @@
+// App navigation. Collapsible: the toggle shrinks the rail to icon-size
+// abbreviations so modules get the full screen width (state persists locally).
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { ROLE_LABELS } from "@/lib/permissions";
 
 const links = [
-  { to: "/", label: "Dashboard", end: true },
-  { to: "/shipments", label: "Shipments" },
-  { to: "/billing", label: "Billing" },
-  { to: "/trailers", label: "Drop Trailers" },
-  { to: "/routes", label: "Route Optimizer" },
-  { to: "/inventory", label: "Inventory" },
-  { to: "/sams", label: "Sam's Club" },
-  { to: "/skus", label: "SKU Generator" },
-  { to: "/manifests", label: "Manifest Import" },
-  { to: "/forms", label: "Forms" },
-  { to: "/emails", label: "Email Data Log" },
-  { to: "/customers", label: "Customers" },
-  { to: "/carriers", label: "Carriers" },
-  { to: "/documents", label: "Documents" },
-  { to: "/tasks", label: "Tasks" },
+  { to: "/", label: "Dashboard", abbr: "Da", end: true },
+  { to: "/shipments", label: "Shipments", abbr: "Sh" },
+  { to: "/billing", label: "Billing", abbr: "Bi" },
+  { to: "/trailers", label: "Drop Trailers", abbr: "Tr" },
+  { to: "/routes", label: "Route Optimizer", abbr: "Ro" },
+  { to: "/inventory", label: "Inventory", abbr: "In" },
+  { to: "/sams", label: "Sam's Club", abbr: "SC" },
+  { to: "/skus", label: "SKU Generator", abbr: "SK" },
+  { to: "/manifests", label: "Manifest Import", abbr: "MI" },
+  { to: "/customers", label: "Customers", abbr: "Cu" },
+  { to: "/carriers", label: "Carriers", abbr: "Ca" },
+  { to: "/documents", label: "Documents", abbr: "Do" },
+  { to: "/tasks", label: "Tasks", abbr: "Ta" },
+  { to: "/forms", label: "Forms", abbr: "Fo" },
+  { to: "/emails", label: "Email Data Log", abbr: "Em" },
 ];
 
 export default function Sidebar() {
   const { role, isAdmin } = useAuth();
-  const items = isAdmin ? [...links, { to: "/team", label: "Team" }] : links;
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("fd_sidebar") === "collapsed");
+
+  const toggle = () => {
+    setCollapsed((c) => {
+      localStorage.setItem("fd_sidebar", c ? "open" : "collapsed");
+      return !c;
+    });
+  };
+
+  const items = isAdmin ? [...links, { to: "/team", label: "Team", abbr: "Te" }] : links;
 
   return (
-    <aside className="w-56 shrink-0 bg-slate-900 text-slate-100 p-4 flex flex-col gap-1 min-h-screen">
-      <div className="text-xl font-bold px-2 py-3 text-brand-light">FreightDesk</div>
+    <aside
+      className={`${collapsed ? "w-14" : "w-56"} shrink-0 bg-slate-900 text-slate-100 p-2 flex flex-col gap-1 min-h-screen transition-all duration-200`}
+    >
+      <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-1 py-3`}>
+        {!collapsed && <span className="text-xl font-bold px-1 text-brand-light">FreightDesk</span>}
+        <button
+          onClick={toggle}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="rounded-md px-2 py-1 text-slate-300 hover:bg-slate-800 hover:text-white"
+        >
+          {collapsed ? "»" : "«"}
+        </button>
+      </div>
       {items.map((l) => (
         <NavLink
           key={l.to}
           to={l.to}
           end={"end" in l ? l.end : undefined}
+          title={l.label}
           className={({ isActive }) =>
-            `px-3 py-2 rounded-md text-sm font-medium transition ${
+            `${collapsed ? "px-0 text-center" : "px-3"} py-2 rounded-md text-sm font-medium transition ${
               isActive ? "bg-brand text-white" : "hover:bg-slate-800"
             }`
           }
         >
-          {l.label}
+          {collapsed ? <span className="text-xs font-bold">{l.abbr}</span> : l.label}
         </NavLink>
       ))}
-      {role && (
+      {role && !collapsed && (
         <div className="mt-auto px-3 py-2 text-xs text-slate-400">
           Signed in as <span className="text-slate-200 font-medium">{ROLE_LABELS[role] ?? role}</span>
         </div>

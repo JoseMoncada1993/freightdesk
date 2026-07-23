@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { useLoads } from "@/hooks/useLoads";
 import { useCarriers, useCustomers } from "@/hooks/useTables";
-import { useUpdateLoad } from "@/hooks/useMutations";
+import { useUpdateLoad, useDeleteLoad } from "@/hooks/useMutations";
 import { useSkus, useUpdateSku } from "@/hooks/useSkus";
 import { downloadBols } from "@/lib/bol";
 import { exportCsv, exportButtonProps } from "@/lib/csv";
@@ -107,9 +107,10 @@ function SkuCell({ skus, editable }: { skus: Sku[]; editable: boolean }) {
 export default function Shipments() {
   const { data, isLoading, error } = useLoads();
   const update = useUpdateLoad();
+  const del = useDeleteLoad();
   const customers = useCustomers();
   const carriers = useCarriers();
-  const { can } = useAuth();
+  const { can, canDelete } = useAuth();
   const canWrite = can("shipments");
   const canSku = can("skus");
   const skus = useSkus();
@@ -118,6 +119,7 @@ export default function Shipments() {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<LoadEnriched | null>(null);
   const [statusFilter, setStatusFilter] = useState("active");
+  const [userFilter, setUserFilter] = useState("all");
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [skuTargets, setSkuTargets] = useState<LoadEnriched[] | null>(null);
@@ -141,10 +143,14 @@ export default function Shipments() {
     } else if (statusFilter !== "all") {
       out = out.filter((l) => l.status === statusFilter);
     }
+    if (userFilter !== "all") out = out.filter((l) => (l.created_by_name ?? "—") === userFilter);
     return out;
-  }, [data, statusFilter, showArchived]);
+  }, [data, statusFilter, showArchived, userFilter]);
 
   const statuses = Array.from(new Set((data ?? []).map((l) => l.status).filter(Boolean))) as string[];
+  const addedByUsers = Array.from(
+    new Set((data ?? []).map((l) => l.created_by_name ?? "—")),
+  ).sort();
 
   const toggle = (id: number | null) => {
     if (id == null) return;
@@ -169,6 +175,21 @@ export default function Shipments() {
     if (chosen.length > 0) downloadBols(chosen);
   };
 
+  const bulkArchive = () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    for (const id of ids) update.mutate({ id, archived: !showArchived });
+    setSelected(new Set());
+  };
+
+  const bulkDelete = () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (!confirm(`Permanently delete ${ids.length} shipment${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    for (const id of ids) del.mutate(id);
+    setSelected(new Set());
+  };
+
   const doExport = () =>
     exportCsv(
       rows.map((l) => ({
@@ -181,6 +202,7 @@ export default function Shipments() {
         weight_lbs: l.weight_lbs, rate_usd: l.rate_usd, carrier_pay_usd: l.carrier_pay_usd,
         margin_usd: l.margin_usd, bol_number: l.bol_number,
         pickup_at: l.pickup_at, delivery_at: l.delivery_at, age_days: ageDays(l),
+        added_by: l.created_by_name,
       })),
       "shipments",
     );
@@ -207,6 +229,17 @@ export default function Shipments() {
                 <option key={st} value={st}>{st.replace(/_/g, " ")}</option>
               ))}
             </select>
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              title="Filter by who added the shipment"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Added by: anyone</option>
+              {addedByUsers.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
             <button onClick={doExport} {...exportButtonProps(rows.length)}>Export CSV</button>
             {canWrite && (
               <button
@@ -229,6 +262,24 @@ export default function Shipments() {
             >
               Generate BOLs ({selected.size})
             </button>
+            {canWrite && (
+              <button
+                onClick={bulkArchive}
+                disabled={selected.size === 0}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              >
+                {showArchived ? "Restore" : "Archive"} ({selected.size})
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={bulkDelete}
+                disabled={selected.size === 0}
+                className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+              >
+                Delete ({selected.size})
+              </button>
+            )}
             {canSku && (
               <button
                 onClick={() => {
@@ -314,6 +365,11 @@ export default function Shipments() {
             sort: (r) => ageDays(r),
           },
           {
+            header: "Added by",
+            cell: (r) => r.created_by_name ?? <span className="text-slate-400">—</span>,
+            sort: (r) => r.created_by_name,
+          },
+          {
             header: "",
             cell: (r) => (
               <div className="flex gap-2 justify-end whitespace-nowrap">
@@ -335,6 +391,14 @@ export default function Shipments() {
                     className="text-slate-500 hover:underline text-xs font-medium"
                   >
                     {r.archived ? "Restore" : "Archive"}
+                  </button>
+                )}
+                {canDelete && r.id != null && (
+                  <button
+                    onClick={() => { if (confirm(`Permanently delete shipment ${r.ref ?? r.id}? This cannot be undone.`)) del.mutate(r.id!); }}
+                    className="text-red-600 hover:underline text-xs font-medium"
+                  >
+                    Delete
                   </button>
                 )}
               </div>

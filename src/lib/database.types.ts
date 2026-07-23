@@ -656,6 +656,7 @@ export type Database = {
           consignee_state: string | null
           consignee_zip: string | null
           created_at: string
+          created_by: string | null
           customer_id: number | null
           delivered_at: string | null
           delivery_at: string | null
@@ -712,6 +713,7 @@ export type Database = {
           consignee_state?: string | null
           consignee_zip?: string | null
           created_at?: string
+          created_by?: string | null
           customer_id?: number | null
           delivered_at?: string | null
           delivery_at?: string | null
@@ -768,6 +770,7 @@ export type Database = {
           consignee_state?: string | null
           consignee_zip?: string | null
           created_at?: string
+          created_by?: string | null
           customer_id?: number | null
           delivered_at?: string | null
           delivery_at?: string | null
@@ -1198,6 +1201,35 @@ export type Database = {
           },
         ]
       }
+      user_module_access: {
+        Row: {
+          created_at: string
+          level: string
+          module: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          level?: string
+          module: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          level?: string
+          module?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_module_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouses: {
         Row: {
           active: boolean
@@ -1393,6 +1425,8 @@ export type Database = {
           consignee_state: string | null
           consignee_zip: string | null
           created_at: string | null
+          created_by: string | null
+          created_by_name: string | null
           customer_id: number | null
           customer_name: string | null
           delivered_at: string | null

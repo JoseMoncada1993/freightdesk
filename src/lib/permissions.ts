@@ -55,6 +55,25 @@ const WRITE_ACCESS: Record<WriteModule, Role[]> = {
   emails: ["admin", "dispatcher"],
 };
 
+export const MODULE_LABELS: Record<WriteModule, string> = {
+  shipments: "Shipments",
+  billing: "Billing",
+  trailers: "Drop Trailers",
+  inventory: "Inventory",
+  customers: "Customers",
+  carriers: "Carriers",
+  documents: "Documents",
+  tasks: "Tasks",
+  skus: "SKU Generator",
+  sams: "Sam's Club",
+  routes: "Route Optimizer",
+  manifests: "Manifest Import",
+  forms: "Forms",
+  emails: "Email Data Log",
+};
+
+export const ALL_MODULES = Object.keys(MODULE_LABELS) as WriteModule[];
+
 export function canWrite(role: Role | null, module: WriteModule): boolean {
   if (!role) return false;
   return WRITE_ACCESS[module]?.includes(role) ?? false;

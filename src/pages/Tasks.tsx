@@ -63,10 +63,12 @@ function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => v
   const add = useAddTask();
   const update = useUpdateTask();
   const loads = useLoads();
+  const { profileName } = useAuth();
   const editing = task != null;
 
+  // Assignee is not editable: it auto-populates with the user entering the task.
+  const assignee = editing ? (task.assignee ?? "") : (profileName ?? "");
   const [title, setTitle] = useState(task?.title ?? "");
-  const [assignee, setAssignee] = useState(task?.assignee ?? "");
   const [dueDate, setDueDate] = useState(task?.due_date ?? "");
   const [loadId, setLoadId] = useState(task?.load_id ? String(task.load_id) : "");
   const [status, setStatus] = useState<TaskStatus>((task?.status as TaskStatus) ?? "open");
@@ -123,8 +125,8 @@ function TaskForm({ task, onClose }: { task: TaskRecord | null; onClose: () => v
         <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} />
       </Field>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Assignee">
-          <input value={assignee} onChange={(e) => setAssignee(e.target.value)} className={inputCls} />
+        <Field label="Assignee (auto — the user entering the task)">
+          <input value={assignee || "—"} readOnly disabled className={`${inputCls} bg-slate-50 text-slate-500`} />
         </Field>
         <Field label="Due / scheduled date">
           <input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" className={inputCls} />
@@ -174,7 +176,7 @@ export default function Tasks() {
   const { data, isLoading, error } = useTasks();
   const update = useUpdateTask();
   const add = useAddTask();
-  const { can } = useAuth();
+  const { can, profileName } = useAuth();
   const canWrite = can("tasks");
   const qc = useQueryClient();
 
@@ -371,7 +373,7 @@ export default function Tasks() {
           exampleHeader="title, assignee, status, due_date, recurrence, notes"
           toPayload={(r) => ({
             title: r.title,
-            assignee: r.assignee || null,
+            assignee: r.assignee || profileName || null,
             status: TASK_STATUSES.includes(r.status?.toLowerCase() as never) ? r.status.toLowerCase() : "open",
             due_date: r.due_date && !Number.isNaN(new Date(r.due_date).getTime())
               ? new Date(r.due_date).toISOString().slice(0, 10)
